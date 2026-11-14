@@ -776,6 +776,10 @@ button{cursor:pointer;touch-action:manipulation}
 .rload i{width:14px;height:14px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--pine);animation:spin .8s linear infinite;flex:none}
 .rt{cursor:pointer}
 .rt.sel{border-color:var(--sky);box-shadow:inset 0 0 0 1px var(--sky)}
+.rinfo{margin:8px 0 0;font-size:13.5px;color:var(--muted)}
+#rLand{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin-bottom:2px}
+#rLand summary{font-weight:600;padding:2px 0}
+#rLand .chips{margin:10px 0 6px}
 .rtx{margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 #stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
 #stats b{display:block;font-size:19px;font-weight:700;letter-spacing:-.01em}
@@ -983,7 +987,7 @@ function setSheetH(){requestAnimationFrame(()=>document.documentElement.style.se
 
 /* ---------- opslag ---------- */
 const KEY='etappe.v1';
-let store={trips:[],cur:null,base:'topo',trails:true,showPois:true,offAlert:true,sharp:false,sheetOpen:false,view:null};
+let store={countries:[],trips:[],cur:null,base:'topo',trails:true,showPois:true,offAlert:true,sharp:false,sheetOpen:false,view:null};
 function newTrip(){return{id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:'Nieuwe tocht',start:'',wps:[],legs:[],breaks:[],snap:true,pace:{flat:4,up:300,down:500},notes:'',stars:0,done:false,pois:null,meta:null,wx:null}}
 try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&Array.isArray(s.trips))store=Object.assign(store,s)}catch(e){}
 if(!store.trips.length){const t=newTrip();store.trips.push(t);store.cur=t.id}
@@ -1117,7 +1121,7 @@ let drawing=false;
 function setDrawing(v){drawing=v;$('#btnDraw').classList.toggle('on',v);$('#drawbar').style.display=v&&!routesOpen?'flex':'none';$('#dbUndo').disabled=!trip.wps.length;
   $('#dbT').textContent=!trip.wps.length?'Tik op de kaart voor je startpunt':trip.wps.length===1?'Tik op het volgende punt':'Tik om te verlengen, of op de lijn';
   if(v)map.doubleClickZoom.disable();else map.doubleClickZoom.enable()}
-map.on('click',e=>{closePops();if(drawing&&!routesOpen)run(()=>addWp(e.latlng))});
+map.on('click',e=>{closePops();if(drawing&&!routesOpen)run(()=>addWp(e.latlng));else if(!drawing&&map.getZoom()>=10&&(routesOpen||(store.trails&&!sketchOn())))routesAt(e.latlng)});
 function wpIcon(i){const n=trip.wps.length,c=i===0?'start':i===n-1&&n>1?'end':'via';
   return L.divIcon({className:'',html:'<div class="wp '+c+'">'+(c==='start'?'S':c==='end'?'F':'')+'</div>',iconSize:[26,26],iconAnchor:[13,13]})}
 function draw(){
@@ -1493,7 +1497,7 @@ const STOP=new Set(['du','de','la','le','les','des','the','of','van','der','den'
 const POP=[['Tour du Mont Blanc','tour mont blanc'],['Alta Via 1','alta via 1'],['GR 20','gr 20'],['West Highland Way','west highland way'],['Kungsleden','kungsleden'],['Laugavegur','laugavegur'],['Stubaier Höhenweg','stubaier hohenweg'],['Adlerweg','adlerweg'],['Malerweg','malerweg'],['Rennsteig','rennsteig'],['Pieterpad','pieterpad'],['Tour Monte Rosa','tour monte rosa']];
 function parseRoutes(j){const seen=new Set(),out=[];(j.elements||[]).forEach(e=>{const t=e.tags||{};if(e.type!=='relation'||!t.name||seen.has(e.id))return;seen.add(e.id);
     const km=parseFloat(String(t.distance||'').replace(',','.')),b=e.bounds,wk=String(t.wikipedia||'').match(/^([a-z\-]{2,12}):(.+)$/);
-    out.push({id:e.id,name:t.name.slice(0,80),ref:(t.ref||'').slice(0,12),net:NET[t.network]?t.network:'',km:isFinite(km)&&km>0&&km<20000?km:null,from:t.from||'',to:t.to||'',web:safeUrl(t.website||t.url),
+    out.push({id:e.id,name:t.name.slice(0,80),ref:(t.ref||'').slice(0,12),net:NET[t.network]?t.network:'',km:isFinite(km)&&km>0&&km<20000?km:null,from:t.from||'',to:t.to||'',desc:(t.description||t['description:en']||t.note||'').slice(0,220),op:(t.operator||'').slice(0,60),sym:(t.symbol||'').slice(0,80),web:safeUrl(t.website||t.url),
       wiki:wk?'https://'+wk[1]+'.wikipedia.org/wiki/'+encodeURIComponent(wk[2].replace(/ /g,'_')):null,span:b?hav([b.minlat,b.minlon],[b.maxlat,b.maxlon]):0,b})});
   return out.sort((a,b)=>((NET[a.net]||[0,4])[1]-(NET[b.net]||[0,4])[1])||(b.km||b.span/1000)-(a.km||a.span/1000))}
 async function routesHere(){const z=map.getZoom(),b=map.getBounds();RL.mode='here';RL.moved=false;$('#reSearch').style.display='none';
@@ -1501,20 +1505,38 @@ async function routesHere(){const z=map.getZoom(),b=map.getBounds();RL.mode='her
   const net=z<10?'["network"~"^(iwn|nwn)$"]':z<12?'["network"~"^(iwn|nwn|rwn)$"]':'';
   await loadRoutes(()=>overpass('[out:json][timeout:25];relation["type"="route"]["route"~"^(hiking|foot)$"]'+net+'["name"]('+b.getSouth().toFixed(4)+','+b.getWest().toFixed(4)+','+b.getNorth().toFixed(4)+','+b.getEast().toFixed(4)+');out tags bb 150;',35000).then(parseRoutes),
     z<12?'Je ziet nu alleen '+(z<10?'nationale en internationale':'regionale en langere')+' routes. Zoom in voor lokale wandelingen.':'')}
+const LANDS=[['AT','Oostenrijk',47.5,13.5,7],['CH','Zwitserland',46.8,8.2,8],['IT','Italië',43,12.5,6],['FR','Frankrijk',46.5,2.5,6],['DE','Duitsland',51,10.3,6],['SI','Slovenië',46.1,14.8,8],['ES','Spanje',40,-3.5,6],['PT','Portugal',39.6,-8,7],['GB','Verenigd Koninkrijk',54.5,-3,6],['IE','Ierland',53.3,-8,7],['NO','Noorwegen',64,12,5],['SE','Zweden',62,16,5],['FI','Finland',64.5,26,5],['IS','IJsland',65,-18.5,6],['DK','Denemarken',56,10,7],['NL','Nederland',52.2,5.4,7],['BE','België',50.6,4.6,8],['LU','Luxemburg',49.8,6.1,9],['PL','Polen',52,19.3,6],['CZ','Tsjechië',49.8,15.5,7],['SK','Slowakije',48.7,19.5,7],['HR','Kroatië',44.8,16,7],['RO','Roemenië',45.9,25,6],['BG','Bulgarije',42.7,25.3,7],['GR','Griekenland',39,22.5,6],['ME','Montenegro',42.8,19.3,8],['AL','Albanië',41.1,20,7]];
+const landSel=()=>LANDS.filter(l=>(store.countries||[]).includes(l[0]));
+const landArea=()=>'('+landSel().map(l=>'area["ISO3166-1"="'+l[0]+'"]["admin_level"="2"];').join('')+')->.c;';
+const landNames=()=>landSel().map(l=>l[1]).join(', ');
+async function routesInLands(){const n=landNames();if(!n)return;RL.mode='land';$('#reSearch').style.display='none';
+  await loadRoutes(()=>overpass('[out:json][timeout:90];'+landArea()+'relation["type"="route"]["route"~"^(hiking|foot)$"]["network"~"^(iwn|nwn)$"]["name"](area.c);out tags bb 250;',100000).then(parseRoutes),'Nationale en internationale routes in '+n+'.')}
+async function routesAt(ll){if(RL.busy||RL.tapping)return;RL.tapping=true;setBusy('Routes op dit punt zoeken');$('#busy').style.display='flex';
+  const mpp=156543*Math.cos(ll.lat*Math.PI/180)/2**map.getZoom(),r=Math.round(Math.min(400,Math.max(15,16*mpp)));let items=null;
+  try{items=parseRoutes(await overpass('[out:json][timeout:25];way(around:'+r+','+ll.lat.toFixed(5)+','+ll.lng.toFixed(5)+')["highway"];rel(bw)["type"="route"]["route"~"^(hiking|foot)$"];out tags bb 30;',30000))}catch(e){}
+  RL.tapping=false;$('#busy').style.display=pending?'flex':'none';
+  if(!items||!items.length){if(routesOpen)toast(items?'Op dit punt loopt geen gemarkeerde route. Tik precies op een gekleurde lijn.':'Routes ophalen lukte niet. Probeer het zo opnieuw.',3500);return}
+  if(!routesOpen)openRoutes(null,true);$('#pRoutes').classList.add('small');setSheetH();
+  RL.mode='tap';RL.items=items;RL.filter='all';RL.msg=items.length===1?'Deze route loopt door het punt dat je aantikte.':'Deze routes lopen door het punt dat je aantikte.';$('#reSearch').style.display='none';
+  renderRoutes();$('#rBody').scrollTop=0;previewRoute(items[0])}
 async function routesByName(q){RL.mode='name';$('#reSearch').style.display='none';$('#rQ').value=q;
   const toks=q.split(/[\s\-_\/.,']+/).filter(t=>t&&!STOP.has(t.toLowerCase())).slice(0,5);if(!toks.length||toks.join('').length<2){toast('Typ minstens twee letters.');return}
+  const inL=landSel().length>0;
   await loadRoutes(async()=>{
-    try{const r=await fetchT('https://hiking.waymarkedtrails.org/api/v1/list/search?query='+encodeURIComponent(q)+'&limit=20',8000);
+    if(!inL)try{const r=await fetchT('https://hiking.waymarkedtrails.org/api/v1/list/search?query='+encodeURIComponent(q)+'&limit=20',8000);
       if(r.ok){const j=await r.json(),G={INT:'iwn',NAT:'nwn',REG:'rwn',LOC:'lwn'};
         if(j&&Array.isArray(j.results)){const it=j.results.filter(x=>x&&(!x.type||x.type==='relation')&&Number.isFinite(+x.id)&&typeof x.name==='string'&&x.name).map(x=>({id:+x.id,name:x.name.slice(0,80),ref:String(x.ref||'').slice(0,12),net:G[x.group]||'',km:null,from:'',to:'',web:null,wiki:null,span:0}));if(it.length)return it}}}catch(e){}
     const K='~"^(name|name:en|name:nl|name:de|name:fr|name:it|alt_name|short_name|ref)$"';
-    return parseRoutes(await overpass('[out:json][timeout:50];relation["type"="route"]["route"~"^(hiking|foot)$"]'+toks.map(t=>'['+K+'~"'+ovStr(tokRe(t))+'",i]').join('')+'(34,-25,72,45);out tags bb 60;',60000))},'')}
+    return parseRoutes(await overpass('[out:json][timeout:60];'+(inL?landArea():'')+'relation["type"="route"]["route"~"^(hiking|foot)$"]'+toks.map(t=>'['+K+'~"'+ovStr(tokRe(t))+'",i]').join('')+(inL?'(area.c)':'(34,-25,72,45)')+';out tags bb 60;',70000))},inL?'Gezocht in '+landNames()+'.':'')}
 async function loadRoutes(job,note){RL.busy=true;RL.msg='';RL.items=null;RL.sel=null;gPrev.clearLayers();renderRoutes();
   try{RL.items=await job();RL.msg=RL.items.length?(note||''):'Niets gevonden. '+(RL.mode==='name'?'Probeer een korter of ander deel van de naam, of zoek op de kaart in het gebied zelf.':(note||'Verschuif de kaart of zoom uit.'))}
   catch(e){RL.msg=navigator.onLine===false?'Je bent offline. Bekende routes zoeken kan alleen met verbinding.':'Routes ophalen lukte niet. De dienst is druk. Probeer het over een minuut opnieuw.'}
   RL.busy=false;RL.filter='all';renderRoutes();$('#rBody').scrollTop=0}
 function renderRoutes(){const el=$('#rBody');let h='';
-  h+='<div class="row"><button class="btn grow" id="rHere"'+(RL.busy?' disabled':'')+'>Zoek in dit kaartgebied</button></div>';
+  const ls=landSel();
+  h+='<details id="rLand"'+(RL.landOpen?' open':'')+'><summary>Landen: '+(ls.length?esc(landNames()):'heel Europa')+'</summary><div class="chips">'+LANDS.map(l=>'<button class="chip '+((store.countries||[]).includes(l[0])?'on':'')+'" data-land="'+l[0]+'">'+l[1]+'</button>').join('')+'</div>'+(ls.length?'<div class="row"><button class="btn small" id="rLandX">Wis keuze</button></div>':'')+'</details>';
+  h+='<div class="row" style="margin-top:8px"><button class="btn grow" id="rHere"'+(RL.busy?' disabled':'')+'>Zoek in dit kaartgebied</button>'+(ls.length?'<button class="btn grow" id="rLandGo"'+(RL.busy?' disabled':'')+'>Lange routes in '+(ls.length===1?esc(ls[0][1]):ls.length+' landen')+'</button>':'')+'</div>';
+  if(!RL.items&&!RL.busy)h+='<p class="note">Of tik op de kaart op een gekleurde routelijn om die route te zien.</p>';
   if(RL.busy)h+='<div class="rload"><i></i><span>Routes zoeken'+(RL.mode==='name'?' in heel Europa':' in dit gebied')+'. Dit kan even duren.</span></div>';
   if(!RL.items&&!RL.busy)h+='<p class="note" style="margin:14px 0 6px">Bekende meerdaagse routes</p><div class="chips">'+POP.map((p,i)=>'<button class="chip" data-pop="'+i+'">'+p[0]+'</button>').join('')+'</div>';
   if(RL.items&&RL.items.length>3)h+='<div class="chips">'+[['all','Alles'],['long','Nationaal en internationaal'],['rwn','Regionaal'],['lwn','Lokaal']].map(c=>'<button class="chip '+(RL.filter===c[0]?'on':'')+'" data-f="'+c[0]+'">'+c[1]+'</button>').join('')+'</div>';
@@ -1523,11 +1545,15 @@ function renderRoutes(){const el=$('#rBody');let h='';
     if(RL.items.length)h+='<p class="note" style="margin:10px 0 8px">'+list.length+(list.length===1?' route':' routes')+'. Tik op een route om hem op de kaart te zien.</p>';
     h+=list.map(r=>{const sel=RL.sel===r.id,meta=[r.net?NET[r.net][0]:'',r.len?fKm(r.len)+' km':r.km?'ca. '+fM(r.km)+' km':'',r.from&&r.to?esc(r.from)+' naar '+esc(r.to):''].filter(Boolean).join(' · ');
       let x='';if(sel)x=RL.loading===r.id?'<div class="rload"><i></i><span>Route laden</span></div>':r.err?'<div class="rtx"><span class="note" style="margin:0">'+esc(r.err)+'</span><button class="btn small" data-retry="1">Opnieuw</button></div>'
-        :'<div class="rtx"><button class="btn primary small" data-use="1">Gebruik deze route</button><a class="link" href="https://hiking.waymarkedtrails.org/#route?id='+r.id+'&type=relation" target="_blank" rel="noopener">Meer info</a>'+(r.gaps?'<span class="pill warn">'+r.gaps+(r.gaps===1?' onderbreking':' onderbrekingen')+'</span>':'')+'</div>';
+        :(r.desc||r.op||r.sym?'<p class="rinfo">'+[r.desc?esc(r.desc):'',r.sym?'Markering: '+esc(r.sym):'',r.op?'Beheer: '+esc(r.op):''].filter(Boolean).join('<br>')+'</p>':'')+'<div class="rtx"><button class="btn primary small" data-use="1">Gebruik deze route</button>'+(r.web?'<a class="link" href="'+esc(r.web)+'" target="_blank" rel="noopener">Website</a>':'')+(r.wiki?'<a class="link" href="'+esc(r.wiki)+'" target="_blank" rel="noopener">Wikipedia</a>':'')+'<a class="link" href="https://hiking.waymarkedtrails.org/#route?id='+r.id+'&type=relation" target="_blank" rel="noopener">Meer info</a>'+(r.gaps?'<span class="pill warn">'+r.gaps+(r.gaps===1?' onderbreking':' onderbrekingen')+'</span>':'')+'</div>';
       return'<div class="rt'+(sel?' sel':'')+'" data-id="'+r.id+'" role="button" tabindex="0"><b>'+(r.ref?'<span class="ref">'+esc(r.ref)+'</span>':'')+esc(r.name)+'</b>'+(meta?'<small>'+meta+'</small>':'')+x+'</div>'}).join('')+(RL.items.length&&!list.length?'<p class="note">Geen routes in deze groep.</p>':'')}
   h+='<p class="note" style="margin-top:14px">Routes komen uit OpenStreetMap. Beoordelingen van andere wandelaars zitten er niet in.</p>';
   el.innerHTML=h;
   $('#rHere').onclick=routesHere;
+  $('#rLand').ontoggle=()=>{RL.landOpen=$('#rLand').open};if($('#rLandGo'))$('#rLandGo').onclick=routesInLands;
+  if($('#rLandX'))$('#rLandX').onclick=()=>{store.countries=[];save();renderRoutes()};
+  el.querySelectorAll('[data-land]').forEach(b=>b.onclick=()=>{const c=b.dataset.land,a=store.countries||[];store.countries=a.includes(c)?a.filter(x=>x!==c):a.concat(c);save();RL.landOpen=true;
+    const l=LANDS.find(x=>x[0]===c);if(store.countries.includes(c)){RL.skipMove=true;map.setView([l[2],l[3]],l[4])}renderRoutes()});
   el.querySelectorAll('[data-pop]').forEach(b=>b.onclick=()=>routesByName(POP[+b.dataset.pop][1]));
   el.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{RL.filter=b.dataset.f;renderRoutes()});
   el.querySelectorAll('.rt').forEach(d=>{const r=RL.items.find(x=>x.id===+d.dataset.id),go=e=>{if(e.target.closest('a'))return;if(e.target.closest('[data-use]')){useRoute(r);return}if(e.target.closest('[data-retry]')){r.err=null;GEO.delete(r.id);previewRoute(r);return}if(RL.sel!==r.id||r.err)previewRoute(r)};
@@ -1561,8 +1587,8 @@ async function previewRoute(r){if(!r)return;RL.sel=r.id;r.err=null;
   if(RL.loading===r.id)RL.loading=null;if(routesOpen){renderRoutes();scrollSel()}}
 function scrollSel(){const e=$('#rBody .rt.sel');if(e&&e.scrollIntoView)e.scrollIntoView({block:'nearest'})}
 function useRoute(r){const g=GEO.get(r.id);if(!g)return;closeRoutes();adoptTrack(g.coords.map(c=>c.slice()),r.name.slice(0,60),null,{osm:r.id,web:r.web,wiki:r.wiki,gaps:g.gaps}).then(()=>toast('Route overgenomen. Verdeel hem onder Etappes over dagen.',4500))}
-function openRoutes(q){if(curTab!=='Kaart')showTab('Kaart');closePops();routesOpen=true;$('#pRoutes').style.display='flex';$('#sheet').style.display='none';setDrawing(drawing);renderRoutes();setSheetH();
-  if(q)routesByName(q);else if(!RL.items&&!RL.busy&&map.getZoom()>=9)routesHere()}
+function openRoutes(q,noAuto){if(curTab!=='Kaart')showTab('Kaart');closePops();routesOpen=true;$('#pRoutes').style.display='flex';$('#sheet').style.display='none';setDrawing(drawing);renderRoutes();setSheetH();
+  if(q)routesByName(q);else if(!noAuto&&!RL.items&&!RL.busy&&map.getZoom()>=9)routesHere()}
 function closeRoutes(){routesOpen=false;$('#pRoutes').style.display='none';$('#sheet').style.display='';$('#reSearch').style.display='none';gPrev.clearLayers();RL.sel=null;setDrawing(drawing);renderSheet()}
 $('#rBack').onclick=closeRoutes;$('#reSearch').onclick=routesHere;
 $('#rGrab').onclick=()=>{$('#pRoutes').classList.toggle('small');setSheetH()};
