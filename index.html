@@ -1550,7 +1550,7 @@ async function getGeom(r){if(GEO.has(r.id))return GEO.get(r.id);
   const st=stitch(segs);if(st.coords.length<2)throw new Error('leeg');
   const coords=thin(st.coords,6000);let d=0;for(let i=1;i<coords.length;i++)d+=hav(coords[i-1],coords[i]);
   const t=rels[r.id]&&rels[r.id].tags||{},wk=String(t.wikipedia||'').match(/^([a-z\-]{2,12}):(.+)$/);
-  const g={coords,gaps:st.gaps,d,web:safeUrl(t.website||t.url),wiki:wk?'https://'+wk[1]+'.wikipedia.org/wiki/'+encodeURIComponent(wk[2].replace(/ /g,'_')):null};GEO.set(r.id,g);return g}
+  const g={coords,gaps:st.gaps,d,name:(t.name||'').slice(0,60),web:safeUrl(t.website||t.url),wiki:wk?'https://'+wk[1]+'.wikipedia.org/wiki/'+encodeURIComponent(wk[2].replace(/ /g,'_')):null};GEO.set(r.id,g);return g}
 async function previewRoute(r){if(!r)return;RL.sel=r.id;r.err=null;
   if(r.span>900000){r.err='Te lang om in één keer te laden. Zoom in en kies een deelroute.';renderRoutes();return}
   RL.loading=r.id;renderRoutes();scrollSel();
@@ -1624,6 +1624,18 @@ try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}
 if(!store.sheetOpen)$('#sheet').classList.add('closed');
 applyLayers();loadSketch();refresh();setDrawing(false);if(TR)setTimeout(fit,50);else if(Array.isArray(store.view)&&store.view.length===3)map.setView([store.view[0],store.view[1]],store.view[2]);
 netState();
+/* ---------- link naar een bekende route: ?route=<OSM-relatie>&hutten=1 ---------- */
+async function openLink(){const u=new URLSearchParams(location.search),id=+u.get('route');if(!id)return;
+  try{history.replaceState(null,'',location.pathname)}catch(e){}
+  const have=store.trips.find(t=>t.meta&&t.meta.osm===id);if(have){openTrip(have.id);toast('Deze route staat al bij je tochten.');return}
+  setBusy('Route ophalen');$('#busy').style.display='flex';
+  try{const g=await getGeom({id,span:0});
+    await adoptTrack(g.coords.map(c=>c.slice()),g.name||'Bekende route',null,{osm:id,web:g.web,wiki:g.wiki,gaps:g.gaps});
+    if(u.get('hutten')){await run(loadPois);const hs=(trip.pois||[]).filter(q=>q.t==='hut'&&q.off<400).map(q=>q.d);if(hs.length&&hs.length<=20){trip.breaks=hs;refresh()}}
+    toast('Route geladen'+(trip.breaks.length?' met een overnachting bij elke hut langs de route. Pas de dagen aan onder Etappes.':'. Verdeel hem onder Etappes over dagen.'),7000)}
+  catch(e){toast('De route uit de link kon niet worden geladen. Zoek hem via Routes.',6000)}
+  $('#busy').style.display=pending?'flex':'none'}
+openLink();
 
 </script>
 </body>
