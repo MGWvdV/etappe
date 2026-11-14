@@ -1073,11 +1073,12 @@ function setBusy(txt){$('#busy span').textContent=txt}
 async function fillEle(coords){ // hoogtes van Open-Meteo: ongeveer elke 120 m een punt, 100 per aanvraag, daartussen interpoleren
   const n=coords.length;if(!n)return false;let total=0;for(let i=1;i<n;i++)total+=hav(coords[i-1],coords[i]);
   const m=Math.max(2,Math.min(n,1500,Math.ceil(total/120)+1)),idx=[];for(let k=0;k<m;k++)idx.push(Math.round(k*(n-1)/(m-1)));
-  const e=[];
-  try{for(let o=0;o<m;o+=100){const part=idx.slice(o,o+100);
+  const parts=[];for(let o=0;o<m;o+=100)parts.push(idx.slice(o,o+100));const res=new Array(parts.length);let next=0,done=0;
+  const worker=async()=>{while(next<parts.length){const k=next++,part=parts[k];
       const r=await fetchT('https://api.open-meteo.com/v1/elevation?latitude='+part.map(i=>coords[i][0]).join(',')+'&longitude='+part.map(i=>coords[i][1]).join(','));
-      if(!r.ok)throw 0;e.push(...(await r.json()).elevation);if(m>100)setBusy('Hoogtes ophalen '+Math.round(Math.min(m,o+100)/m*100)+'%')}
-  }catch(err){return false}
+      if(!r.ok)throw new Error('hoogte');res[k]=(await r.json()).elevation;done++;if(parts.length>1)setBusy('Hoogtes ophalen '+Math.round(done/parts.length*100)+'%')}};
+  try{await Promise.all([0,1,2,3].map(worker))}catch(err){return false}
+  const e=[].concat(...res);if(e.length!==m)return false;
   for(let k=0;k<m-1;k++){const i0=idx[k],i1=idx[k+1];for(let i=i0;i<=i1;i++){const f=i1===i0?0:(i-i0)/(i1-i0);coords[i][2]=Math.round(e[k]+(e[k+1]-e[k])*f)}}
   return true}
 async function routeLeg(a,b){
@@ -1110,7 +1111,7 @@ async function wmtArea(s_,w,n,e,lim){const a=merc(s_,w),c=merc(n,e),r=await fetc
 /* ---------- bewerkingen (na elkaar uitgevoerd) ---------- */
 let queue=Promise.resolve(),pending=0;
 function run(fn){pending++;setBusy('Route berekenen');$('#busy').style.display='flex';
-  queue=queue.then(fn).catch(e=>{console.error(e);toast('Er ging iets mis bij het berekenen van de route.')}).then(()=>{pending--;if(!pending)$('#busy').style.display='none';refresh()});return queue}
+  queue=queue.then(fn).catch(e=>{console.error(e);toast('Er ging iets mis bij het berekenen van de route.')}).then(()=>{pending--;if(!pending&&!eleBusy)$('#busy').style.display='none';refresh()});return queue}
 const locked=k=>k>=0&&k<trip.legs.length&&trip.legs[k].locked;
 async function addWp(ll){const w={lat:r5(ll.lat),lng:r5(ll.lng)};if(trip.wps.length){trip.legs.push(await routeLeg(trip.wps[trip.wps.length-1],w))}trip.wps.push(w)}
 async function moveWp(i,ll){trip.wps[i].lat=r5(ll.lat);trip.wps[i].lng=r5(ll.lng);
@@ -1475,7 +1476,8 @@ async function runDiag(){$('#diagBtn').disabled=true;$('#diagBtn').textContent='
   out.push(['GPS',!!navigator.geolocation&&(window.isSecureContext!==false),navigator.geolocation?(window.isSecureContext===false?'alleen via https':'beschikbaar'):'niet beschikbaar']);
   out.push(['Starten zonder verbinding',!!(navigator.serviceWorker&&navigator.serviceWorker.controller),navigator.serviceWorker&&navigator.serviceWorker.controller?'ingeschakeld':HOSTED?'nog niet, herlaad één keer':'alleen via https']);
   diag=out;if(curTab==='Tochten')renderTochten()}
-function openTrip(id){trip=store.trips.find(t=>t.id===id)||store.trips[0];WX={};wantDays=0;delArm=null;missOn=false;gMiss.clearLayers();loadSketch();refresh();applyLayers();setDrawing(false);fit()}
+function openTrip(id){trip=store.trips.find(t=>t.id===id)||store.trips[0];retryEle();WX={};wantDays=0;delArm=null;missOn=false;gMiss.clearLayers();loadSketch();refresh();applyLayers();setDrawing(false);fit()}
+function retryEle(){const t=trip,l=t.legs.length===1&&t.legs[0].locked?t.legs[0]:null;if(!l||eleBusy||navigator.onLine===false||l.coords.some(c=>c[2]!=null))return;eleBusy++;fillEle(l.coords).then(ok=>{eleBusy--;if(ok){save();if(trip===t)refresh()}})}
 function fit(){if(TR)map.fitBounds(L.latLngBounds(TR.P.map(p=>[p[0],p[1]])),{paddingTopLeft:[30,90],paddingBottomRight:[70,sheetH()+20]});else if(trip.wps.length)map.setView([trip.wps[0].lat,trip.wps[0].lng],13)}
 function gpxText(){const S=stages(),x=[];x.push('<?xml version="1.0" encoding="UTF-8"?>','<gpx version="1.1" creator="Etappe wandelplanner" xmlns="http://www.topografix.com/GPX/1/1">','<metadata><name>'+esc(trip.name)+'</name></metadata>');
   trip.breaks.forEach((b,k)=>{const p=TR.P[idxAt(b)],np=nightPlace(b);x.push('<wpt lat="'+p[0]+'" lon="'+p[1]+'"><name>Overnachting '+(k+1)+(np?': '+esc(np.n):'')+'</name></wpt>')});
@@ -1488,8 +1490,11 @@ function thin(coords,max){if(coords.length<=max)return coords;for(const tol of[6
   const step=Math.ceil(coords.length/max);return coords.filter((_,i)=>i%step===0||i===coords.length-1)}
 function adoptTrack(coords,name,breaksAt,meta){const t=newTrip();t.name=name;t.meta=meta||null;const a=coords[0],b=coords[coords.length-1];t.wps=[{lat:a[0],lng:a[1]},{lat:b[0],lng:b[1]}];t.legs=[{coords,locked:true}];
   store.trips.unshift(t);trip=t;SK=null;drawSketch();
-  return run(async()=>{if(!coords.some(c=>c[2]!=null)){setBusy('Hoogtes ophalen');await fillEle(coords)}buildTrack();if(TR&&breaksAt&&breaksAt.length>1&&breaksAt.length<=40)trip.breaks=breaksAt.slice(0,-1).map(i=>TR.D[Math.min(i,TR.D.length-1)])})
-    .then(()=>{WX={};wantDays=0;setDrawing(false);showTab('Kaart');fit()})}
+  return run(async()=>{buildTrack();if(TR&&breaksAt&&breaksAt.length>1&&breaksAt.length<=40)trip.breaks=breaksAt.slice(0,-1).map(i=>TR.D[Math.min(i,TR.D.length-1)])})
+    .then(()=>{WX={};wantDays=0;setDrawing(false);showTab('Kaart');fit();
+      if(!coords.some(c=>c[2]!=null)){eleBusy++;setBusy('Hoogtes ophalen');$('#busy').style.display='flex';
+        fillEle(coords).then(ok=>{eleBusy--;if(!eleBusy&&!pending)$('#busy').style.display='none';if(ok){save();if(trip===t)refresh()}else if(trip===t)toast('Hoogtes ophalen lukte niet. De route staat er wel; het profiel volgt als je de tocht later opnieuw opent.',5000)})}})}
+let eleBusy=0;
 function importGpx(text){let doc;try{doc=new DOMParser().parseFromString(text,'application/xml')}catch(e){}
   if(!doc||doc.querySelector('parsererror')){toast('Dit bestand is geen geldige GPX.');return}
   let segs=[...doc.getElementsByTagName('trkseg')].map(s=>[...s.getElementsByTagName('trkpt')]);if(!segs.length||!segs.some(s=>s.length))segs=[[...doc.getElementsByTagName('rtept')]];
@@ -1606,16 +1611,21 @@ async function loadGeom(r){const old=await TDB.get(r.id,'g');if(old&&old.coords&
   const g=await firstOf([geomWmt(r.id),geomOverpass(r.id)]);g.at=Date.now();TDB.put(r.id,g,'g');return g}
 async function moreInfo(r){if(!r.thin)return;r.thin=false;
   try{const it=parseRoutes(await overpassFast('[out:json][timeout:15];rel('+r.id+');out tags bb;',18000))[0];if(it){['desc','op','sym','web','wiki','from','to','km'].forEach(k=>{if(it[k]&&!r[k])r[k]=it[k]});if(!r.net)r.net=it.net;if(routesOpen&&RL.sel===r.id&&RL.loading!==r.id){renderRoutes();scrollSel()}}}catch(e){r.thin=true}}
+async function quickGeom(id){const r=await fetchT(WMT+'details/relation/'+id+'/geometry/geojson',12000);if(!r.ok)throw new Error('wmt');const j=await r.json(),lines=[];
+  (function walk(o){if(!o||typeof o!=='object')return;if(o.type==='LineString')lines.push(o.coordinates);else if(o.type==='MultiLineString')o.coordinates.forEach(c=>lines.push(c));else{walk(o.geometry);(o.features||o.geometries||[]).forEach(walk)}})(j);
+  const out=lines.map(l=>(l||[]).map(c=>{let x=+c[0],y=+c[1];if(Math.abs(x)>180||Math.abs(y)>90){const la=(2*Math.atan(Math.exp(y/6378137))-Math.PI/2)*180/Math.PI;x=x/20037508.34*180;y=la}return[y,x]}).filter(c=>isFinite(c[0])&&isFinite(c[1])&&Math.abs(c[0])<=90&&Math.abs(c[1])<=180)).filter(l=>l.length>1);
+  if(!out.length)throw new Error('leeg');return out}
+function showPrev(lines,fitIt){gPrev.clearLayers();L.polyline(lines,{color:'#fff',weight:9,opacity:.9,interactive:false}).addTo(gPrev);L.polyline(lines,{color:'#1b6fd6',weight:5,interactive:false}).addTo(gPrev);
+  if(fitIt){RL.skipMove=true;map.fitBounds(L.latLngBounds([].concat(...lines)),{paddingTopLeft:[30,80],paddingBottomRight:[70,sheetH()+20]})}}
 async function previewRoute(r){if(!r)return;RL.sel=r.id;r.err=null;
   if(r.span>900000){r.err='Te lang om in één keer te laden. Zoom in en kies een deelroute.';renderRoutes();return}
-  RL.loading=r.id;renderRoutes();scrollSel();moreInfo(r);
-  try{const g=await getGeom(r);if(RL.sel!==r.id)return;r.len=g.d;r.gaps=g.gaps;if(!r.web)r.web=g.web;if(!r.wiki)r.wiki=g.wiki;
-    gPrev.clearLayers();L.polyline(g.coords,{color:'#fff',weight:9,opacity:.9,interactive:false}).addTo(gPrev);L.polyline(g.coords,{color:'#1b6fd6',weight:5,interactive:false}).addTo(gPrev);
-    RL.skipMove=true;map.fitBounds(L.latLngBounds(g.coords),{paddingTopLeft:[30,80],paddingBottomRight:[70,sheetH()+20]})}
-  catch(e){if(RL.sel===r.id)r.err=navigator.onLine===false?'Je bent offline.':'Deze route kon niet worden geladen.'}
+  RL.loading=r.id;renderRoutes();scrollSel();moreInfo(r);let shown=false,full=false;
+  quickGeom(r.id).then(lines=>{if(RL.sel!==r.id||full)return;showPrev(lines,true);shown=true;if(RL.loading===r.id){RL.loading=null;if(routesOpen){renderRoutes();scrollSel()}}}).catch(()=>{});
+  try{const g=await getGeom(r);full=true;if(RL.sel!==r.id)return;r.len=g.d;r.gaps=g.gaps;if(!r.web)r.web=g.web;if(!r.wiki)r.wiki=g.wiki;showPrev([g.coords],!shown)}
+  catch(e){if(RL.sel===r.id&&!shown)r.err=navigator.onLine===false?'Je bent offline.':'Deze route kon niet worden geladen.'}
   if(RL.loading===r.id)RL.loading=null;if(routesOpen){renderRoutes();scrollSel()}}
 function scrollSel(){const e=$('#rBody .rt.sel');if(e&&e.scrollIntoView)e.scrollIntoView({block:'nearest'})}
-async function useRoute(r){let g;try{g=await getGeom(r)}catch(e){return}closeRoutes();adoptTrack(g.coords.map(c=>c.slice()),r.name.slice(0,60),null,{osm:r.id,web:r.web,wiki:r.wiki,gaps:g.gaps}).then(()=>toast('Route overgenomen. Verdeel hem onder Etappes over dagen.',4500))}
+async function useRoute(r){let g;setBusy('Route ophalen');$('#busy').style.display='flex';try{g=await getGeom(r)}catch(e){toast('De volledige route kon niet worden geladen. Probeer het zo opnieuw.');return}finally{if(!pending&&!eleBusy)$('#busy').style.display='none'}closeRoutes();adoptTrack(g.coords.map(c=>c.slice()),r.name.slice(0,60),null,{osm:r.id,web:r.web,wiki:r.wiki,gaps:g.gaps}).then(()=>toast('Route overgenomen. Verdeel hem onder Etappes over dagen.',4500))}
 function openRoutes(q,noAuto){if(curTab!=='Kaart')showTab('Kaart');closePops();if(!noAuto&&RL.mode==='tap'){RL.items=null;RL.msg='';$('#pRoutes').classList.remove('small')}routesOpen=true;$('#pRoutes').style.display='flex';$('#sheet').style.display='none';setDrawing(drawing);renderRoutes();setSheetH();
   if(q)routesByName(q);else if(!noAuto&&!RL.items&&!RL.busy&&map.getZoom()>=9)routesHere()}
 function closeRoutes(){routesOpen=false;$('#pRoutes').style.display='none';$('#sheet').style.display='';$('#reSearch').style.display='none';gPrev.clearLayers();RL.sel=null;setDrawing(drawing);renderSheet()}
