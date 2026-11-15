@@ -1072,12 +1072,12 @@ async function fetchT(url,ms=20000,opt){const c=new AbortController(),t=setTimeo
 function setBusy(txt){$('#busy span').textContent=txt}
 async function fillEle(coords){ // hoogtes van Open-Meteo: ongeveer elke 120 m een punt, 100 per aanvraag, daartussen interpoleren
   const n=coords.length;if(!n)return false;let total=0;for(let i=1;i<n;i++)total+=hav(coords[i-1],coords[i]);
-  const m=Math.max(2,Math.min(n,1500,Math.ceil(total/120)+1)),idx=[];for(let k=0;k<m;k++)idx.push(Math.round(k*(n-1)/(m-1)));
+  const m=Math.max(2,Math.min(n,400,Math.ceil(total/120)+1)),idx=[];for(let k=0;k<m;k++)idx.push(Math.round(k*(n-1)/(m-1)));
   const parts=[];for(let o=0;o<m;o+=100)parts.push(idx.slice(o,o+100));const res=new Array(parts.length);let next=0,done=0;
-  const worker=async()=>{while(next<parts.length){const k=next++,part=parts[k];
-      const r=await fetchT('https://api.open-meteo.com/v1/elevation?latitude='+part.map(i=>coords[i][0]).join(',')+'&longitude='+part.map(i=>coords[i][1]).join(','));
+  const worker=async()=>{while(next<parts.length){const k=next++,part=parts[k],u='https://api.open-meteo.com/v1/elevation?latitude='+part.map(i=>coords[i][0]).join(',')+'&longitude='+part.map(i=>coords[i][1]).join(',');
+      let r=await fetchT(u);for(let a=0;a<2&&r.status===429;a++){await new Promise(z=>setTimeout(z,8000));r=await fetchT(u)}   // te veel tegelijk: even wachten
       if(!r.ok)throw new Error('hoogte');res[k]=(await r.json()).elevation;done++;if(parts.length>1)setBusy('Hoogtes ophalen '+Math.round(done/parts.length*100)+'%')}};
-  try{await Promise.all([0,1,2,3].map(worker))}catch(err){return false}
+  try{await Promise.all([0,1].map(worker))}catch(err){return false}
   const e=[].concat(...res);if(e.length!==m)return false;
   for(let k=0;k<m-1;k++){const i0=idx[k],i1=idx[k+1];for(let i=i0;i<=i1;i++){const f=i1===i0?0:(i-i0)/(i1-i0);coords[i][2]=Math.round(e[k]+(e[k+1]-e[k])*f)}}
   return true}
@@ -1092,11 +1092,20 @@ async function routeLeg(a,b){
   const d=hav([a.lat,a.lng],[b.lat,b.lng]),n=Math.min(99,Math.max(1,Math.ceil(d/60))),coords=[];
   for(let i=0;i<=n;i++)coords.push([r5(a.lat+(b.lat-a.lat)*i/n),r5(a.lng+(b.lng-a.lng)*i/n),null]);
   await fillEle(coords);return{coords,straight:true}}
-const OVP=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter'];
+const OVP=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
 async function overpass(q,ms=45000){let err=new Error('overpass');
   for(const u of OVP){try{const r=await fetchT(u,ms,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});if(!r.ok){err=new Error('status '+r.status);continue}return await r.json()}catch(e){err=e}}
   throw err}
 
+async function eleWmt(id,coords){const r=await fetchT(WMT+'details/relation/'+id+'/way-elevation?simplify=120',40000);if(!r.ok)throw new Error('hoogte');const j=await r.json(),grid=new Map(),C=0.003;let n=0;
+  Object.values(j.segments||{}).forEach(sg=>(sg.elevation||[]).forEach(e=>{const la=(2*Math.atan(Math.exp(e.y/6378137))-Math.PI/2)*180/Math.PI,lo=e.x/20037508.34*180;if(!isFinite(la)||!isFinite(lo)||!isFinite(e.ele))return;
+    const k=Math.floor(la/C)+','+Math.floor(lo/C);if(!grid.has(k))grid.set(k,[]);grid.get(k).push([la,lo,e.ele]);n++}));
+  if(n<2)throw new Error('hoogte leeg');let hit=0;const out=new Array(coords.length).fill(null);
+  coords.forEach((c,i)=>{const a=Math.floor(c[0]/C),b=Math.floor(c[1]/C);let d1=Infinity,d2=Infinity,e1=0,e2=0;
+    for(let x=-1;x<=1;x++)for(let y=-1;y<=1;y++){const cell=grid.get((a+x)+','+(b+y));if(cell)for(const q of cell){const d=hav(c,q);if(d<d1){d2=d1;e2=e1;d1=d;e1=q[2]}else if(d<d2){d2=d;e2=q[2]}}}
+    if(d1<200){out[i]=d2<300?Math.round((e1*(d2+1)+e2*(d1+1))/(d1+d2+2)):e1;hit++}});
+  if(hit<coords.length*.6)throw new Error('hoogte dun');let last=out.find(v=>v!=null);out.forEach((v,i)=>{coords[i][2]=v==null?last:(last=v)});return true}
+function fetchEle(t,coords){return(t.meta&&t.meta.osm?eleWmt(t.meta.osm,coords).catch(()=>fillEle(coords)):fillEle(coords))}
 // Voor zoeken en aantikken: vraag beide servers tegelijk en neem het eerste goede antwoord.
 async function overpassFast(q,ms=30000){if(!Promise.any)return overpass(q,ms);
   return Promise.any(OVP.map(async u=>{const r=await fetchT(u,ms,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});if(!r.ok)throw new Error('status '+r.status);return r.json()}))}
@@ -1104,7 +1113,7 @@ const firstOf=jobs=>Promise.any?Promise.any(jobs):jobs[jobs.length-1];
 const WMT='https://hiking.waymarkedtrails.org/api/v1/';
 function wmtItems(j){if(!j||!Array.isArray(j.results))throw new Error('wmt');const G={INT:'iwn',NAT:'nwn',REG:'rwn',LOC:'lwn'};
   const it=j.results.filter(x=>x&&(!x.type||x.type==='relation')&&Number.isFinite(+x.id)&&typeof x.name==='string'&&x.name).map(x=>({id:+x.id,name:x.name.slice(0,80),ref:String(x.ref||'').slice(0,12),net:G[x.group]||'',km:null,from:'',to:'',web:null,wiki:null,span:0,thin:true}));
-  if(!it.length)throw new Error('wmt leeg');return it.sort((a,b)=>((NET[a.net]||[0,4])[1]-(NET[b.net]||[0,4])[1]))}
+  return it.sort((a,b)=>((NET[a.net]||[0,4])[1]-(NET[b.net]||[0,4])[1]))}
 const merc=(lat,lng)=>[lng*20037508.34/180,Math.log(Math.tan((90+lat)*Math.PI/360))*20037508.34/Math.PI];
 async function wmtArea(s_,w,n,e,lim){const a=merc(s_,w),c=merc(n,e),r=await fetchT(WMT+'list/by_area?bbox='+[a[0],a[1],c[0],c[1]].map(v=>v.toFixed(0)).join(',')+'&limit='+(lim||60),9000);if(!r.ok)throw new Error('wmt');return wmtItems(await r.json())}
 
@@ -1221,12 +1230,12 @@ map.on('zoomend',()=>{if(!sketchOn()||!SK)return;if(skBandOf(map.getZoom())!==sk
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function downloadSketch(){
   const pts=[];let acc=0;for(let i=0;i<TR.P.length;i++)if(i===0||TR.D[i]-acc>=250||i===TR.P.length-1){pts.push(TR.P[i]);acc=TR.D[i]}
-  const CH=50,chunks=[];for(let i=0;i<pts.length-1;i+=CH-1)chunks.push(pts.slice(i,i+CH));
+  const CH=28,chunks=[];for(let i=0;i<pts.length-1;i+=CH-1)chunks.push(pts.slice(i,i+CH));
   const ways=new Map(),nodes=new Map();
   for(let c=0;c<chunks.length;c++){setBusy('Offline kaart ophalen '+Math.round(c/chunks.length*100)+'%');
     const ln=chunks[c].map(p=>p[0].toFixed(4)+','+p[1].toFixed(4)).join(',');
     const q='[out:json][timeout:60];(way(around:1500,'+ln+')["highway"];way(around:1500,'+ln+')["waterway"~"^(river|stream|canal)$"];way(around:1500,'+ln+')["natural"~"^(water|glacier|cliff)$"];way(around:1500,'+ln+')["aerialway"];way(around:1500,'+ln+')["railway"="rail"];node(around:3000,'+ln+')["natural"~"^(peak|saddle)$"];node(around:4000,'+ln+')["place"~"^(city|town|village|hamlet)$"];);out geom qt;';
-    let j;try{j=await overpass(q,80000)}catch(e){await wait(4000);j=await overpass(q,80000)}
+    let j;try{j=await overpass(q,45000)}catch(e){await wait(8000);try{j=await overpass(q,60000)}catch(e2){await wait(15000);j=await overpass(q,80000)}}
     (j.elements||[]).forEach(e=>{const t=e.tags||{};
       if(e.type==='way'&&e.geometry&&!ways.has(e.id)){const k=wayClass(t);if(!k)return;const c=[];let last=null;
         e.geometry.forEach((g,i)=>{if(!g)return;const pt=[g.lat,g.lon];if(last&&i<e.geometry.length-1&&hav(last,pt)<4)return;c.push(r5(g.lat),r5(g.lon));last=pt});if(c.length>=4)ways.set(e.id,{k,c})}
@@ -1251,7 +1260,7 @@ function renderSheet(){
   $('#dbUndo').disabled=!trip.wps.length;if(drawing)setDrawing(true);
   $('#grabT').textContent=has?($('#sheet').classList.contains('closed')?'Toon hoogteprofiel':'Verberg hoogteprofiel'):'';
   if(has){const n=TR.P.length-1,days=trip.breaks.length+1;$('#sKm').textContent=fKm(TR.total);$('#sUp').textContent=TR.hasEle?fM(TR.UP[n]):'–';$('#sDn').textContent=TR.hasEle?fM(TR.DN[n]):'–';
-    $('#nextStep').hidden=!(days===1&&TR.T[n]>9);$('#nextStep').textContent='Verdeel over '+Math.ceil(TR.T[n]/6.5)+' dagen';
+    $('#nextStep').hidden=!(days===1&&TR.hasEle&&TR.T[n]>9);$('#nextStep').textContent='Verdeel over '+Math.ceil(TR.T[n]/6.5)+' dagen';
     $('#sT').textContent=fT(TR.T[n]);$('#sTl').textContent=days>1?'uur · '+days+' dgn':'uur lopen';renderProfile()}
   setSheetH()}
 let PF=null;
@@ -1466,7 +1475,7 @@ function renderTochten(){
 async function runDiag(){$('#diagBtn').disabled=true;$('#diagBtn').textContent='Bezig met testen';
   const imgOk=u=>new Promise(res=>{const i=new Image();i.onload=()=>res(true);i.onerror=()=>res(false);i.src=u+(u.includes('?')?'&':'?')+'t='+Date.now();setTimeout(()=>res(false),10000)});
   const tile=async u=>{try{const r=await fetchT(u,10000,{mode:'cors'});if(r.ok)return[true,'werkt, ook offline te bewaren']}catch(e){}return await imgOk(u)?[true,'werkt, niet te bewaren']:[false,'geblokkeerd']};
-  const api=async(u,opt)=>{try{const r=await fetchT(u,15000,opt);return r.ok?[true,'werkt']:[false,'geweigerd ('+r.status+')']}catch(e){return[false,navigator.onLine===false?'geen verbinding':'geblokkeerd']}};
+  const api=async(u,opt)=>{try{const r=await fetchT(u,15000,opt);return r.ok?[true,'werkt']:r.status===429||r.status>=500?[false,'te druk, probeer later']:[false,'geweigerd ('+r.status+')']}catch(e){return[false,navigator.onLine===false?'geen verbinding':'geblokkeerd']}};
   const jobs=[['Topografische kaart',()=>tile('https://a.tile.opentopomap.org/6/33/22.png')],['Standaardkaart',()=>tile('https://tile.openstreetmap.org/6/33/22.png')],['Wandelroutes op de kaart',()=>tile('https://tile.waymarkedtrails.org/hiking/8/134/89.png')],
     ['Route langs paden',()=>api('https://brouter.de/brouter?lonlats=11.39,47.26%7C11.395,47.265&profile=hiking-mountain&alternativeidx=0&format=geojson')],['Weer',()=>api('https://api.open-meteo.com/v1/forecast?latitude=47.26&longitude=11.39&daily=weather_code&forecast_days=1')],
     ['Hoogtes',()=>api('https://api.open-meteo.com/v1/elevation?latitude=47.26&longitude=11.39')],['Plaatsen zoeken',()=>api('https://photon.komoot.io/api/?q=Innsbruck&limit=1')],['Plaatsen zoeken, reserve',()=>api('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=Innsbruck')],
@@ -1477,7 +1486,7 @@ async function runDiag(){$('#diagBtn').disabled=true;$('#diagBtn').textContent='
   out.push(['Starten zonder verbinding',!!(navigator.serviceWorker&&navigator.serviceWorker.controller),navigator.serviceWorker&&navigator.serviceWorker.controller?'ingeschakeld':HOSTED?'nog niet, herlaad één keer':'alleen via https']);
   diag=out;if(curTab==='Tochten')renderTochten()}
 function openTrip(id){trip=store.trips.find(t=>t.id===id)||store.trips[0];retryEle();WX={};wantDays=0;delArm=null;missOn=false;gMiss.clearLayers();loadSketch();refresh();applyLayers();setDrawing(false);fit()}
-function retryEle(){const t=trip,l=t.legs.length===1&&t.legs[0].locked?t.legs[0]:null;if(!l||eleBusy||navigator.onLine===false||l.coords.some(c=>c[2]!=null))return;eleBusy++;fillEle(l.coords).then(ok=>{eleBusy--;if(ok){save();if(trip===t)refresh()}})}
+function retryEle(){const t=trip,l=t.legs.length===1&&t.legs[0].locked?t.legs[0]:null;if(!l||eleBusy||navigator.onLine===false||l.coords.some(c=>c[2]!=null))return;eleBusy++;fetchEle(t,l.coords).then(ok=>{eleBusy--;if(ok){save();if(trip===t)refresh()}})}
 function fit(){if(TR)map.fitBounds(L.latLngBounds(TR.P.map(p=>[p[0],p[1]])),{paddingTopLeft:[30,90],paddingBottomRight:[70,sheetH()+20]});else if(trip.wps.length)map.setView([trip.wps[0].lat,trip.wps[0].lng],13)}
 function gpxText(){const S=stages(),x=[];x.push('<?xml version="1.0" encoding="UTF-8"?>','<gpx version="1.1" creator="Etappe wandelplanner" xmlns="http://www.topografix.com/GPX/1/1">','<metadata><name>'+esc(trip.name)+'</name></metadata>');
   trip.breaks.forEach((b,k)=>{const p=TR.P[idxAt(b)],np=nightPlace(b);x.push('<wpt lat="'+p[0]+'" lon="'+p[1]+'"><name>Overnachting '+(k+1)+(np?': '+esc(np.n):'')+'</name></wpt>')});
@@ -1493,7 +1502,7 @@ function adoptTrack(coords,name,breaksAt,meta){const t=newTrip();t.name=name;t.m
   return run(async()=>{buildTrack();if(TR&&breaksAt&&breaksAt.length>1&&breaksAt.length<=40)trip.breaks=breaksAt.slice(0,-1).map(i=>TR.D[Math.min(i,TR.D.length-1)])})
     .then(()=>{WX={};wantDays=0;setDrawing(false);showTab('Kaart');fit();
       if(!coords.some(c=>c[2]!=null)){eleBusy++;setBusy('Hoogtes ophalen');$('#busy').style.display='flex';
-        fillEle(coords).then(ok=>{eleBusy--;if(!eleBusy&&!pending)$('#busy').style.display='none';if(ok){save();if(trip===t)refresh()}else if(trip===t)toast('Hoogtes ophalen lukte niet. De route staat er wel; het profiel volgt als je de tocht later opnieuw opent.',5000)})}})}
+        fetchEle(t,coords).then(ok=>{eleBusy--;if(!eleBusy&&!pending)$('#busy').style.display='none';if(ok){save();if(trip===t)refresh()}else if(trip===t)toast('Hoogtes ophalen lukte niet. De route staat er wel; het profiel volgt als je de tocht later opnieuw opent.',5000)})}})}
 let eleBusy=0;
 function importGpx(text){let doc;try{doc=new DOMParser().parseFromString(text,'application/xml')}catch(e){}
   if(!doc||doc.querySelector('parsererror')){toast('Dit bestand is geen geldige GPX.');return}
@@ -1525,9 +1534,8 @@ function prefetch(){(RL.items||[]).filter(r=>r.span<400000).slice(0,2).forEach(r
 async function routesHere(){const z=map.getZoom(),b=map.getBounds();RL.mode='here';RL.moved=false;$('#reSearch').style.display='none';
   if(z<8){RL.items=null;RL.msg='Zoom verder in op de kaart, tot je een streek of dal ziet. Voor heel Europa tegelijk zijn er te veel routes.';renderRoutes();return}
   const net=z<10?'["network"~"^(iwn|nwn)$"]':z<12?'["network"~"^(iwn|nwn|rwn)$"]':'',S=b.getSouth(),W=b.getWest(),N=b.getNorth(),E=b.getEast(),keep=z<10?['iwn','nwn']:z<12?['iwn','nwn','rwn']:null;
-  await loadRoutes(()=>cached('h'+z+[S,W,N,E].map(v=>v.toFixed(2)).join(','),()=>firstOf([
-      wmtArea(S,W,N,E,80).then(it=>{const f=keep?it.filter(r=>keep.includes(r.net)):it;if(!f.length)throw new Error('leeg');return f}),
-      overpassFast('[out:json][timeout:25];relation["type"="route"]["route"~"^(hiking|foot)$"]'+net+'["name"]('+S.toFixed(4)+','+W.toFixed(4)+','+N.toFixed(4)+','+E.toFixed(4)+');out tags bb 150;',35000).then(parseRoutes)])),
+  await loadRoutes(()=>cached('h'+z+[S,W,N,E].map(v=>v.toFixed(2)).join(','),()=>wmtArea(S,W,N,E,100).then(it=>keep?it.filter(r=>keep.includes(r.net)):it)
+      .catch(()=>overpassFast('[out:json][timeout:25];relation["type"="route"]["route"~"^(hiking|foot)$"]'+net+'["name"]('+S.toFixed(4)+','+W.toFixed(4)+','+N.toFixed(4)+','+E.toFixed(4)+');out tags bb 150;',35000).then(parseRoutes))),
     z<12?'Je ziet nu alleen '+(z<10?'nationale en internationale':'regionale en langere')+' routes. Zoom in voor lokale wandelingen.':'')}
 const LANDS=[['AT','Oostenrijk',47.5,13.5,7],['CH','Zwitserland',46.8,8.2,8],['IT','Italië',43,12.5,6],['FR','Frankrijk',46.5,2.5,6],['DE','Duitsland',51,10.3,6],['SI','Slovenië',46.1,14.8,8],['ES','Spanje',40,-3.5,6],['PT','Portugal',39.6,-8,7],['GB','Verenigd Koninkrijk',54.5,-3,6],['IE','Ierland',53.3,-8,7],['NO','Noorwegen',64,12,5],['SE','Zweden',62,16,5],['FI','Finland',64.5,26,5],['IS','IJsland',65,-18.5,6],['DK','Denemarken',56,10,7],['NL','Nederland',52.2,5.4,7],['BE','België',50.6,4.6,8],['LU','Luxemburg',49.8,6.1,9],['PL','Polen',52,19.3,6],['CZ','Tsjechië',49.8,15.5,7],['SK','Slowakije',48.7,19.5,7],['HR','Kroatië',44.8,16,7],['RO','Roemenië',45.9,25,6],['BG','Bulgarije',42.7,25.3,7],['GR','Griekenland',39,22.5,6],['ME','Montenegro',42.8,19.3,8],['AL','Albanië',41.1,20,7]];
 const landSel=()=>LANDS.filter(l=>(store.countries||[]).includes(l[0]));
@@ -1540,8 +1548,8 @@ async function routesAt(ll){if(RL.tapping)return;RL.tapping=true;const open=rout
   if(open){$('#pRoutes').classList.add('small');RL.mode='tap';RL.busy=true;RL.items=null;RL.msg='';RL.sel=null;$('#reSearch').style.display='none';renderRoutes();setSheetH()}
   else{setBusy('Route op dit punt zoeken');$('#busy').style.display='flex'}
   const mpp=156543*Math.cos(ll.lat*Math.PI/180)/2**map.getZoom(),r=Math.round(Math.min(400,Math.max(15,16*mpp))),dLat=r/111320,dLng=dLat/Math.cos(ll.lat*Math.PI/180);let items=null;
-  try{items=await cached('t'+ll.lat.toFixed(4)+','+ll.lng.toFixed(4)+','+r,()=>firstOf([wmtArea(ll.lat-dLat,ll.lng-dLng,ll.lat+dLat,ll.lng+dLng,20),
-      overpassFast('[out:json][timeout:20];way(around:'+r+','+ll.lat.toFixed(5)+','+ll.lng.toFixed(5)+')["highway"];rel(bw)["type"="route"]["route"~"^(hiking|foot)$"];out tags bb 30;',25000).then(parseRoutes)]))}catch(e){}
+  try{items=await cached('t'+ll.lat.toFixed(4)+','+ll.lng.toFixed(4)+','+r,()=>wmtArea(ll.lat-dLat,ll.lng-dLng,ll.lat+dLat,ll.lng+dLng,20)
+      .catch(()=>overpassFast('[out:json][timeout:20];way(around:'+r+','+ll.lat.toFixed(5)+','+ll.lng.toFixed(5)+')["highway"];rel(bw)["type"="route"]["route"~"^(hiking|foot)$"];out tags bb 30;',25000).then(parseRoutes)))}catch(e){}
   RL.tapping=false;RL.busy=false;$('#busy').style.display=pending?'flex':'none';
   if(!items||!items.length){gPrev.clearLayers();const m=items?'Geen gemarkeerde route op dit punt. Tik precies op een gekleurde lijn.':'Routes ophalen lukte niet. Probeer het zo opnieuw.';
     if(routesOpen){RL.msg=m;renderRoutes()}else toast(m,2200);return}
@@ -1554,7 +1562,7 @@ async function routesByName(q){RL.mode='name';$('#reSearch').style.display='none
   const K='~"^(name|name:en|name:nl|name:de|name:fr|name:it|alt_name|short_name|ref)$"';
   const viaOv=()=>overpassFast('[out:json][timeout:60];'+(inL?landArea():'')+'relation["type"="route"]["route"~"^(hiking|foot)$"]'+toks.map(t=>'['+K+'~"'+ovStr(tokRe(t))+'",i]').join('')+(inL?'(area.c)':'(34,-25,72,45)')+';out tags bb 60;',70000).then(parseRoutes);
   const viaWmt=()=>fetchT(WMT+'list/search?query='+encodeURIComponent(q)+'&limit=20',9000).then(r=>{if(!r.ok)throw new Error('wmt');return r.json()}).then(wmtItems);
-  await loadRoutes(()=>cached('n'+q.toLowerCase()+'|'+(store.countries||[]).join(','),()=>inL?viaOv():viaWmt().catch(viaOv)),inL?'Gezocht in '+landNames()+'.':'')}
+  await loadRoutes(()=>cached('n'+q.toLowerCase()+'|'+(store.countries||[]).join(','),()=>inL?viaOv():viaWmt().then(it=>it.length?it:viaOv(),viaOv)),inL?'Gezocht in '+landNames()+'.':'')}
 async function loadRoutes(job,note){RL.busy=true;RL.msg='';RL.items=null;RL.sel=null;gPrev.clearLayers();renderRoutes();
   try{RL.items=await job();RL.msg=RL.items.length?(note||''):'Niets gevonden. '+(RL.mode==='name'?'Probeer een korter of ander deel van de naam, of zoek op de kaart in het gebied zelf.':(note||'Verschuif de kaart of zoom uit.'))}
   catch(e){RL.items=null;RL.msg=navigator.onLine===false?'Je bent offline. Bekende routes zoeken kan alleen met verbinding.':'Routes ophalen lukte niet. De dienst is druk. Probeer het over een minuut opnieuw.'}
@@ -1612,12 +1620,13 @@ async function geomWmt(id){const r=await fetchT(WMT+'details/relation/'+id,25000
     else if(Array.isArray(o.forward))o.forward.forEach(w=>walk(w,depth+1));
     else if(Array.isArray(o.main))o.main.forEach(w=>walk(w,depth+1))})(j.route,0);
   if(!lines.length)throw new Error('wmt leeg');
-  const all=[];let gaps=0;lines.forEach(l=>{if(all.length){const d=hav(all[all.length-1],l[0]);if(d<1)l=l.slice(1);else if(d>120)gaps++}l.forEach(c=>all.push(c))});
+  const pieces=[];lines.forEach(l=>{const last=pieces[pieces.length-1];if(last&&hav(last[last.length-1],l[0])<25)(hav(last[last.length-1],l[0])<1?l.slice(1):l).forEach(c=>last.push(c));else pieces.push(l.slice())});
+  const st=pieces.length>1?stitch(pieces):{coords:pieces[0],gaps:0},all=st.coords,gaps=st.gaps;
   const g=geomFrom([all],Object.assign({},j.tags||{},{name:(j.tags&&j.tags.name)||j.name||''}));g.gaps=gaps;
   const t=j.tags||{},km=parseFloat(String(t.distance||'').replace(',','.'));
   g.info={desc:(t.description||t['description:en']||t.note||'').slice(0,220),op:(t.operator||'').slice(0,60),sym:(t.symbol||'').slice(0,80),from:t.from||'',to:t.to||'',km:isFinite(km)&&km>0&&km<20000?km:null};return g}
 async function loadGeom(r){const old=await TDB.get(r.id,'g');if(old&&old.coords&&Date.now()-old.at<30*864e5)return old;
-  const g=await firstOf([geomWmt(r.id),geomOverpass(r.id)]);g.at=Date.now();TDB.put(r.id,g,'g');return g}
+  const g=await geomWmt(r.id).catch(()=>geomOverpass(r.id));g.at=Date.now();TDB.put(r.id,g,'g');return g}
 async function moreInfo(r){if(!r.thin)return;r.thin=false;
   try{const it=parseRoutes(await overpassFast('[out:json][timeout:15];rel('+r.id+');out tags bb;',18000))[0];if(it){['desc','op','sym','web','wiki','from','to','km'].forEach(k=>{if(it[k]&&!r[k])r[k]=it[k]});if(!r.net)r.net=it.net;if(routesOpen&&RL.sel===r.id&&RL.loading!==r.id){renderRoutes();scrollSel()}}}catch(e){r.thin=true}}
 function showPrev(lines,fitIt){gPrev.clearLayers();L.polyline(lines,{color:'#fff',weight:9,opacity:.9,interactive:false}).addTo(gPrev);L.polyline(lines,{color:'#1b6fd6',weight:5,interactive:false}).addTo(gPrev);
