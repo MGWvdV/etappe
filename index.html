@@ -759,7 +759,7 @@ button{cursor:pointer;touch-action:manipulation}
 .pop .danger{color:var(--danger)}
 
 /* blad met cijfers en profiel */
-#sheet{position:absolute;z-index:450;left:0;right:0;bottom:0;background:var(--card);border-radius:18px 18px 0 0;box-shadow:0 -2px 12px rgba(16,28,22,.14);padding:0 14px 10px}
+#sheet{position:absolute;z-index:510;left:0;right:0;bottom:0;background:var(--card);border-radius:18px 18px 0 0;box-shadow:0 -2px 12px rgba(16,28,22,.14);padding:0 14px 10px}
 #grab{display:block;width:100%;border:0;background:transparent;padding:8px 0 6px}
 #grab span,#rGrab span{display:block;width:38px;height:5px;border-radius:3px;background:var(--line);margin:0 auto}
 #grab small{display:block;font-size:11px;color:var(--muted);margin-top:4px}
@@ -1121,7 +1121,7 @@ async function wmtArea(s_,w,n,e,lim){const a=merc(s_,w),c=merc(n,e),r=await fetc
 /* ---------- bewerkingen (na elkaar uitgevoerd) ---------- */
 let queue=Promise.resolve(),pending=0;
 function run(fn){pending++;setBusy('Route berekenen');$('#busy').style.display='flex';
-  queue=queue.then(fn).catch(e=>{console.error(e);toast('Er ging iets mis bij het berekenen van de route.')}).then(()=>{pending--;if(!pending&&!eleBusy)$('#busy').style.display='none';refresh()});return queue}
+  queue=queue.then(fn).catch(e=>{console.error(e);toast('Er ging iets mis bij het berekenen van de route.')}).then(()=>{pending--;if(!pending&&!eleBusy&&!bgBusy)$('#busy').style.display='none';refresh()});return queue}
 const locked=k=>k>=0&&k<trip.legs.length&&trip.legs[k].locked;
 async function addWp(ll){const w={lat:r5(ll.lat),lng:r5(ll.lng)};if(trip.wps.length){trip.legs.push(await routeLeg(trip.wps[trip.wps.length-1],w))}trip.wps.push(w)}
 async function moveWp(i,ll){trip.wps[i].lat=r5(ll.lat);trip.wps[i].lng=r5(ll.lng);
@@ -1330,7 +1330,7 @@ function renderEtappes(){
   $('#dMin').onclick=()=>{wantDays=Math.max(1,wantDays-1);renderEtappes()};$('#dPlus').onclick=()=>{wantDays=Math.min(40,wantDays+1);renderEtappes()};
   $('#dGo').onclick=()=>{autoSplit(wantDays);toast('Route verdeeld over '+wantDays+(wantDays===1?' dag':' dagen'),2200)};
   $('#dStart').onchange=e=>{trip.start=e.target.value;WX={};refresh()};
-  $('#dPois').onclick=()=>run(loadPois);
+  $('#dPois').onclick=()=>bg(loadPois);
   el.querySelectorAll('[data-mv]').forEach(b=>b.onclick=()=>{const k=+b.dataset.mv;trip.breaks[k]=Math.min(TR.total-200,Math.max(200,trip.breaks[k]+ +b.dataset.d));refresh()});
   el.querySelectorAll('[data-snap]').forEach(b=>b.onclick=()=>{trip.breaks[+b.dataset.snap]=+b.dataset.to;refresh()});
   el.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{trip.breaks.splice(+b.dataset.rm,1);wantDays=0;refresh()});
@@ -1476,7 +1476,7 @@ function renderTochten(){
   el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const id=b.dataset.del;if(delArm!==id){delArm=id;renderTochten();return}delArm=null;TDB.del(id,'v');store.trips=store.trips.filter(t=>t.id!==id);if(!store.trips.length)store.trips.push(newTrip());if(trip.id===id)openTrip(store.trips[0].id);else{save();renderTochten()}});
   $('#gpxOut').onclick=exportGpx;$('#gpxIn').onclick=()=>$('#gpxFile').click();$('#gpxFile').onchange=e=>{const f=e.target.files[0];if(f)f.text().then(importGpx)};
   if($('#offShow'))$('#offShow').onclick=()=>{missOn=true;showTab('Kaart');fit();setTimeout(drawMissing,400);toast('Rood gemarkeerde vakken zijn nog niet bewaard. Zoom daar in en ze verdwijnen.',6000)};
-  if($('#offPrep'))$('#offPrep').onclick=()=>{showTab('Kaart');run(prepOffline)};
+  if($('#offPrep'))$('#offPrep').onclick=()=>{showTab('Kaart');bg(prepOffline)};
   if($('#offView'))$('#offView').onclick=showSketch;
   $('#offClear').onclick=()=>{if(delArm!=='tiles'){delArm='tiles';renderTochten();return}delArm=null;TDB.clear().then(()=>{haveKeys.clear();fullWarned=false;renderTochten();toast('Bewaarde kaartdelen gewist.')})};
   $('#diagBtn').onclick=runDiag}
@@ -1511,7 +1511,9 @@ function adoptTrack(coords,name,breaksAt,meta){const t=newTrip();t.name=name;t.m
     .then(()=>{WX={};wantDays=0;setDrawing(false);showTab('Kaart');fit();
       if(!coords.some(c=>c[2]!=null)){eleBusy++;setBusy('Hoogtes ophalen');$('#busy').style.display='flex';
         fetchEle(t,coords).then(ok=>{eleBusy--;if(!eleBusy&&!pending)$('#busy').style.display='none';if(ok){save();if(trip===t)refresh()}else if(trip===t)toast('Hoogtes ophalen lukte niet. De route staat er wel; het profiel volgt als je de tocht later opnieuw opent.',5000)})}})}
-let eleBusy=0;
+let eleBusy=0,bgBusy=0;
+// Lang achtergrondwerk (hutten, offline kaart) houdt het tekenen van routes niet tegen.
+function bg(fn){if(bgBusy){toast('Er loopt al een download. Even geduld.',2500);return Promise.resolve()}bgBusy++;$('#busy').style.display='flex';return fn().catch(e=>console.error(e)).then(()=>{bgBusy--;if(!pending&&!eleBusy)$('#busy').style.display='none';refresh()})}
 function importGpx(text){let doc;try{doc=new DOMParser().parseFromString(text,'application/xml')}catch(e){}
   if(!doc||doc.querySelector('parsererror')){toast('Dit bestand is geen geldige GPX.');return}
   let segs=[...doc.getElementsByTagName('trkseg')].map(s=>[...s.getElementsByTagName('trkpt')]);if(!segs.length||!segs.some(s=>s.length))segs=[[...doc.getElementsByTagName('rtept')]];
@@ -1589,7 +1591,7 @@ function renderRoutes(){const el=$('#rBody');let h='';
     if(RL.items.length)h+='<p class="note" style="margin:10px 0 8px">'+list.length+(list.length===1?' route':' routes')+'. Tik op een route om hem op de kaart te zien.</p>';
     h+=list.map(r=>{const sel=RL.sel===r.id,meta=[r.net?NET[r.net][0]:'',r.len?fKm(r.len)+' km':r.km?'ca. '+fM(r.km)+' km':'',r.from&&r.to?esc(r.from)+' naar '+esc(r.to):''].filter(Boolean).join(' · ');
       let x='';if(sel)x=RL.loading===r.id?'<div class="rload"><i></i><span>Route laden</span></div>':r.err?'<div class="rtx"><span class="note" style="margin:0">'+esc(r.err)+'</span><button class="btn small" data-retry="1">Opnieuw</button></div>'
-        :'<div class="rtx"><button class="btn primary small" data-use="1">Gebruik deze route</button>'+(r.web?'<a class="link" href="'+esc(r.web)+'" target="_blank" rel="noopener">Website</a>':'')+(r.wiki?'<a class="link" href="'+esc(r.wiki)+'" target="_blank" rel="noopener">Wikipedia</a>':'')+'<a class="link" href="https://hiking.waymarkedtrails.org/#route?id='+r.id+'&type=relation" target="_blank" rel="noopener">Meer info</a>'+(r.gaps?'<span class="pill warn">'+r.gaps+(r.gaps===1?' onderbreking':' onderbrekingen')+'</span>':'')+'</div>'+(r.desc||r.op||r.sym?'<p class="rinfo">'+[r.desc?esc(r.desc):'',r.sym?'Markering: '+esc(r.sym):'',r.op?'Beheer: '+esc(r.op):''].filter(Boolean).join('<br>')+'</p>':'');
+        :'<div class="rtx"><button class="btn primary small" data-use="1">Gebruik deze route</button>'+(RL.mode==='tap'?'<button class="btn small" data-fit="1">Toon hele route</button>':'')+(r.web?'<a class="link" href="'+esc(r.web)+'" target="_blank" rel="noopener">Website</a>':'')+(r.wiki?'<a class="link" href="'+esc(r.wiki)+'" target="_blank" rel="noopener">Wikipedia</a>':'')+'<a class="link" href="https://hiking.waymarkedtrails.org/#route?id='+r.id+'&type=relation" target="_blank" rel="noopener">Meer info</a>'+(r.gaps?'<span class="pill warn">'+r.gaps+(r.gaps===1?' onderbreking':' onderbrekingen')+'</span>':'')+'</div>'+(r.desc||r.op||r.sym?'<p class="rinfo">'+[r.desc?esc(r.desc):'',r.sym?'Markering: '+esc(r.sym):'',r.op?'Beheer: '+esc(r.op):''].filter(Boolean).join('<br>')+'</p>':'');
       return'<div class="rt'+(sel?' sel':'')+'" data-id="'+r.id+'" role="button" tabindex="0"><b>'+(r.ref?'<span class="ref">'+esc(r.ref)+'</span>':'')+esc(r.name)+'</b>'+(meta?'<small>'+meta+'</small>':'')+x+'</div>'}).join('')+(RL.items.length&&!list.length?'<p class="note">Geen routes in deze groep.</p>':'')}
   h+='<p class="note" style="margin-top:14px">Routes komen uit OpenStreetMap. Beoordelingen van andere wandelaars zitten er niet in.</p>';
   el.innerHTML=h;
@@ -1600,7 +1602,7 @@ function renderRoutes(){const el=$('#rBody');let h='';
     const l=LANDS.find(x=>x[0]===c);if(store.countries.includes(c)){RL.skipMove=true;map.setView([l[2],l[3]],l[4])}renderRoutes()});
   el.querySelectorAll('[data-pop]').forEach(b=>b.onclick=()=>routesByName(POP[+b.dataset.pop][1]));
   el.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{RL.filter=b.dataset.f;renderRoutes()});
-  el.querySelectorAll('.rt').forEach(d=>{const r=RL.items.find(x=>x.id===+d.dataset.id),go=e=>{if(e.target.closest('a'))return;if(e.target.closest('[data-use]')){useRoute(r);return}if(e.target.closest('[data-retry]')){r.err=null;GEO.delete(r.id);previewRoute(r);return}if(RL.sel!==r.id||r.err)previewRoute(r)};
+  el.querySelectorAll('.rt').forEach(d=>{const r=RL.items.find(x=>x.id===+d.dataset.id),go=e=>{if(e.target.closest('a'))return;if(e.target.closest('[data-use]')){useRoute(r);return}if(e.target.closest('[data-fit]')){getGeom(r).then(g=>{RL.skipMove=true;map.fitBounds(L.latLngBounds(g.coords),{paddingTopLeft:[30,80],paddingBottomRight:[70,sheetH()+20]})});return}if(e.target.closest('[data-retry]')){r.err=null;GEO.delete(r.id);previewRoute(r);return}if(RL.sel!==r.id||r.err)previewRoute(r)};
     d.onclick=go;d.onkeydown=e=>{if(e.key==='Enter')go(e)}})}
 function stitch(segs){segs=segs.filter(s=>s.length>1);if(!segs.length)return{coords:[],gaps:0};
   const used=new Array(segs.length).fill(false);let chain=segs[0].slice(),left=segs.length-1,gaps=0;used[0]=true;
@@ -1644,7 +1646,7 @@ async function previewRoute(r){if(!r)return;RL.sel=r.id;r.err=null;
   if(r.span>900000){r.err='Te lang om in één keer te laden. Zoom in en kies een deelroute.';renderRoutes();return}
   RL.loading=r.id;renderRoutes();scrollSel();const shown=false;
   try{const g=await getGeom(r);if(RL.sel!==r.id)return;r.len=g.d;r.gaps=g.gaps;if(!r.web)r.web=g.web;if(!r.wiki)r.wiki=g.wiki;
-    if(g.info){Object.keys(g.info).forEach(k=>{if(g.info[k]&&!r[k])r[k]=g.info[k]});r.thin=false}else moreInfo(r);showPrev([g.coords],true)}
+    if(g.info){Object.keys(g.info).forEach(k=>{if(g.info[k]&&!r[k])r[k]=g.info[k]});r.thin=false}else moreInfo(r);showPrev([g.coords],RL.mode!=='tap')}
   catch(e){if(RL.sel===r.id&&!shown)r.err=navigator.onLine===false?'Je bent offline.':'Deze route kon niet worden geladen.'}
   if(RL.loading===r.id)RL.loading=null;if(routesOpen){renderRoutes();scrollSel()}}
 function scrollSel(){const e=$('#rBody .rt.sel');if(e&&e.scrollIntoView)e.scrollIntoView({block:'nearest'})}
@@ -1684,11 +1686,11 @@ $('#btnLocate').onclick=()=>{closePops();if(watchId!=null&&follow){follow=false;
 $('#baseTopo').onchange=$('#baseOsm').onchange=$('#baseSketch').onchange=e=>{autoSketch=false;store.base=e.target.value;applyLayers();save();if(missOn)drawMissing();if(store.base==='sketch'&&!trip.sketch)toast(TR?'Voor deze tocht is nog geen schetskaart bewaard. Kies Meer > Zet tocht offline klaar.':'Teken eerst een route. Daarna zet je hem offline klaar.',5000)};
 $('#optSharp').onchange=e=>{store.sharp=e.target.checked;save();makeBases();applyLayers();toast(store.sharp?'Scherpere kaart: fijnere lijnen, kleinere letters.':'Gewone kaart: grotere letters.',2600)};
 $('#ovTrails').onchange=e=>{store.trails=e.target.checked;applyLayers();save()};
-$('#ovPois').onchange=e=>{store.showPois=e.target.checked;save();drawPois();if(store.showPois&&TR&&!trip.pois){closePops();run(loadPois)}};
+$('#ovPois').onchange=e=>{store.showPois=e.target.checked;save();drawPois();if(store.showPois&&TR&&!trip.pois){closePops();bg(loadPois)}};
 $('#optSnap').onchange=e=>{trip.snap=e.target.checked;save();toast(trip.snap?'Nieuwe stukken volgen wandelpaden.':'Nieuwe stukken worden rechte lijnen.',2400)};
 $('#actFit').onclick=()=>{closePops();fit()};
-$('#actOffline').onclick=()=>{closePops();if(TR)run(prepOffline);else toast('Teken eerst een route.')};
-$('#actPois').onclick=()=>{closePops();if(TR)run(loadPois);else toast('Teken eerst een route.')};
+$('#actOffline').onclick=()=>{closePops();if(TR)bg(prepOffline);else toast('Teken eerst een route.')};
+$('#actPois').onclick=()=>{closePops();if(TR)bg(loadPois);else toast('Teken eerst een route.')};
 $('#actLoop').onclick=()=>{closePops();if(trip.wps.length>1)run(()=>addWp(trip.wps[0]))};
 $('#actReverse').onclick=()=>{closePops();if(!TR)return;const tot=TR.total;trip.wps.reverse();trip.legs.reverse();trip.legs.forEach(l=>l.coords.reverse());trip.breaks=trip.breaks.map(b=>tot-b);trip.poiSig='';refresh();toast('Route omgekeerd',1800)};
 let clearArm=0;$('#actClear').onclick=()=>{if(Date.now()-clearArm>4000){clearArm=Date.now();$('#actClear').textContent='Tik nogmaals om te wissen';return}clearArm=0;$('#actClear').textContent='Route wissen';closePops();trip.wps=[];trip.legs=[];trip.breaks=[];trip.pois=null;trip.meta=null;trip.sketch=null;SK=null;TDB.del(trip.id,'v');WX={};drawSketch();refresh();setDrawing(true)};
@@ -1719,7 +1721,7 @@ async function openLink(){const u=new URLSearchParams(location.search),id=+u.get
   setBusy('Route ophalen');$('#busy').style.display='flex';
   try{const g=await getGeom({id,span:0});
     await adoptTrack(g.coords.map(c=>c.slice()),g.name||'Bekende route',null,{osm:id,web:g.web,wiki:g.wiki,gaps:g.gaps});
-    if(u.get('hutten')){await run(loadPois);const hs=[];(trip.pois||[]).filter(q=>q.t==='hut'&&q.off<400&&q.d>2000&&q.d<TR.total-2000).forEach(q=>{if(!hs.length||q.d-hs[hs.length-1]>2500)hs.push(q.d)});if(hs.length&&hs.length<=20){trip.breaks=hs;refresh()}}
+    if(u.get('hutten')){await bg(loadPois);const hs=[];(trip.pois||[]).filter(q=>q.t==='hut'&&q.off<400&&q.d>2000&&q.d<TR.total-2000).forEach(q=>{if(!hs.length||q.d-hs[hs.length-1]>2500)hs.push(q.d)});if(hs.length&&hs.length<=20){trip.breaks=hs;refresh()}}
     toast('Route geladen'+(trip.breaks.length?' met een overnachting bij elke hut langs de route. Pas de dagen aan onder Etappes.':'. Verdeel hem onder Etappes over dagen.'),7000)}
   catch(e){toast('De route uit de link kon niet worden geladen. Zoek hem via Routes.',6000)}
   $('#busy').style.display=pending?'flex':'none'}
