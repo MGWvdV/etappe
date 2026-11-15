@@ -11,7 +11,7 @@ permissions:
 jobs:
   live:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,6 +24,7 @@ jobs:
           sleep 2
           mkdir -p out
           node .ci/live.mjs || true
+          node .ci/film.mjs || true
       - name: Publish results
         run: |
           cd out

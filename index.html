@@ -1049,7 +1049,8 @@ function buildTrack(){
   if(hasEle){let last=raw.find(v=>v!=null);raw=raw.map(v=>v==null?last:(last=v))}else raw=raw.map(()=>0);
   const E=raw.map((_,i)=>{let s=0,c=0;for(let j=Math.max(0,i-2);j<=Math.min(n-1,i+2);j++){s+=raw[j];c++}return s/c});
   const UP=new Array(n).fill(0),DN=new Array(n).fill(0),T=new Array(n).fill(0),p=trip.pace;
-  for(let i=1;i<n;i++){const de=E[i]-E[i-1],u=de>0?de:0,d=de<0?-de:0;UP[i]=UP[i-1]+u;DN[i]=DN[i-1]+d;
+  let ref=E[0];
+  for(let i=1;i<n;i++){let u=0,d=0;const de=E[i]-ref;if(de>=8){u=de;ref=E[i]}else if(de<=-8){d=-de;ref=E[i]}UP[i]=UP[i-1]+u;DN[i]=DN[i-1]+d;
     const h=(D[i]-D[i-1])/1000/p.flat,v=u/p.up+d/p.down;T[i]=T[i-1]+Math.max(h,v)+Math.min(h,v)/2}
   TR={P,D,E,UP,DN,T,hasEle,total:D[n-1],legStart,wpDist:legStart.map(i=>D[i]).concat(D[n-1])};
   trip.breaks=[...new Set(trip.breaks.map(b=>Math.round(b)))].filter(b=>b>150&&b<TR.total-150).sort((a,b)=>a-b);
@@ -1182,7 +1183,7 @@ async function loadPois(){if(!TR)return;
   const line=pts.map(p=>p[0].toFixed(4)+','+p[1].toFixed(4)).join(',');
   const q='[out:json][timeout:60];(nwr(around:700,'+line+')["tourism"~"^(alpine_hut|wilderness_hut|camp_site|hostel|guest_house|hotel)$"];nwr(around:250,'+line+')["amenity"~"^(drinking_water|shelter)$"];node(around:250,'+line+')["natural"="spring"];node(around:500,'+line+')["railway"~"^(station|halt)$"];);out center tags 700;';
   setBusy('Hutten en water zoeken');
-  let j;try{j=await overpass(q,70000)}catch(e){toast(navigator.onLine===false?'Je bent offline. Hutten en water zoeken kan alleen met verbinding.':'Hutten en water ophalen lukte niet. Probeer het over een minuut opnieuw.');return}
+  let j;try{j=await overpassFast(q,70000)}catch(e){toast(navigator.onLine===false?'Je bent offline. Hutten en water zoeken kan alleen met verbinding.':'Hutten en water ophalen lukte niet. Probeer het over een minuut opnieuw.');return}
   const out=[];(j.elements||[]).forEach(e=>{const t=e.tags||{},ty=poiType(t),lat=e.lat!=null?e.lat:e.center&&e.center.lat,lng=e.lon!=null?e.lon:e.center&&e.center.lon;if(!ty||lat==null)return;
     const nr=nearest([lat,lng]);out.push({t:ty,n:(t.name||PT[ty][0]).slice(0,60),lat:r5(lat),lng:r5(lng),ele:isFinite(parseFloat(t.ele))?Math.round(parseFloat(t.ele)):null,web:safeUrl(t.website||t['contact:website']),tel:(t.phone||t['contact:phone']||'').slice(0,30)||null,d:Math.round(TR.D[nr.i]),off:Math.round(nr.d)})});
   trip.pois=out.sort((a,b)=>a.d-b.d);trip.poiSig=TR.P.length+':'+Math.round(TR.total);trip.poiAt=Date.now();store.showPois=true;$('#ovPois').checked=true;
@@ -1232,17 +1233,20 @@ async function downloadSketch(){
   const pts=[];let acc=0;for(let i=0;i<TR.P.length;i++)if(i===0||TR.D[i]-acc>=250||i===TR.P.length-1){pts.push(TR.P[i]);acc=TR.D[i]}
   const CH=28,chunks=[];for(let i=0;i<pts.length-1;i+=CH-1)chunks.push(pts.slice(i,i+CH));
   const ways=new Map(),nodes=new Map();
-  for(let c=0;c<chunks.length;c++){setBusy('Offline kaart ophalen '+Math.round(c/chunks.length*100)+'%');
-    const ln=chunks[c].map(p=>p[0].toFixed(4)+','+p[1].toFixed(4)).join(',');
-    const q='[out:json][timeout:60];(way(around:1500,'+ln+')["highway"];way(around:1500,'+ln+')["waterway"~"^(river|stream|canal)$"];way(around:1500,'+ln+')["natural"~"^(water|glacier|cliff)$"];way(around:1500,'+ln+')["aerialway"];way(around:1500,'+ln+')["railway"="rail"];node(around:3000,'+ln+')["natural"~"^(peak|saddle)$"];node(around:4000,'+ln+')["place"~"^(city|town|village|hamlet)$"];);out geom qt;';
-    let j;try{j=await overpass(q,45000)}catch(e){await wait(8000);try{j=await overpass(q,60000)}catch(e2){await wait(15000);j=await overpass(q,80000)}}
+  const ingest=j=>{
     (j.elements||[]).forEach(e=>{const t=e.tags||{};
       if(e.type==='way'&&e.geometry&&!ways.has(e.id)){const k=wayClass(t);if(!k)return;const c=[];let last=null;
         e.geometry.forEach((g,i)=>{if(!g)return;const pt=[g.lat,g.lon];if(last&&i<e.geometry.length-1&&hav(last,pt)<4)return;c.push(r5(g.lat),r5(g.lon));last=pt});if(c.length>=4)ways.set(e.id,{k,c})}
       else if(e.type==='node'&&!nodes.has(e.id)){const ele=parseFloat(t.ele);
         if(t.place&&t.name)nodes.set(e.id,{k:'place',p:t.place,n:t.name.slice(0,40),lat:r5(e.lat),lng:r5(e.lon)});
-        else if((t.natural==='peak'||t.natural==='saddle')&&(t.name||isFinite(ele)))nodes.set(e.id,{k:t.natural,n:(t.name||'').slice(0,40),e:isFinite(ele)?Math.round(ele):null,lat:r5(e.lat),lng:r5(e.lon)})}});
-    if(c<chunks.length-1)await wait(900)}
+        else if((t.natural==='peak'||t.natural==='saddle')&&(t.name||isFinite(ele)))nodes.set(e.id,{k:t.natural,n:(t.name||'').slice(0,40),e:isFinite(ele)?Math.round(ele):null,lat:r5(e.lat),lng:r5(e.lon)})}});};
+  const todo=chunks.map((_,c)=>c),tries=new Array(chunks.length).fill(0);let ok=0,dead=false;setBusy('Offline kaart ophalen 0%');
+  const worker=async u=>{let bad=0;while(todo.length&&!dead&&bad<3){const c=todo.shift(),ln=chunks[c].map(p=>p[0].toFixed(4)+','+p[1].toFixed(4)).join(',');
+      const q='[out:json][timeout:50];(way(around:1500,'+ln+')["highway"];way(around:1500,'+ln+')["waterway"~"^(river|stream|canal)$"];way(around:1500,'+ln+')["natural"~"^(water|glacier|cliff)$"];way(around:1500,'+ln+')["aerialway"];way(around:1500,'+ln+')["railway"="rail"];node(around:3000,'+ln+')["natural"~"^(peak|saddle)$"];node(around:4000,'+ln+')["place"~"^(city|town|village|hamlet)$"];);out geom qt;';
+      try{const r=await fetchT(u,60000,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});if(!r.ok)throw new Error('status '+r.status);ingest(await r.json());ok++;bad=0;setBusy('Offline kaart ophalen '+Math.round(ok/chunks.length*100)+'%');await wait(700)}
+      catch(e){bad++;tries[c]++;if(tries[c]>=5)dead=true;else todo.push(c);await wait(5000)}}};
+  await Promise.all(OVP.map(worker));if(ok<chunks.length)throw new Error('schetskaart onvolledig');
+
   const v={at:Date.now(),sig:TR.P.length+':'+Math.round(TR.total),lines:[...ways.values()],pts:[...nodes.values()]};
   await TDB.put(trip.id,v,'v');if(!(await TDB.get(trip.id,'v')))throw new Error('opslaan');
   SK=v;trip.sketch={at:v.at,n:v.lines.length,sig:v.sig};drawSketch()}
@@ -1311,7 +1315,7 @@ function renderEtappes(){
     h+='<div class="card"><div class="day"><h3>Dag '+s.n+'</h3><span>'+(d?fDate(d):'km '+fKm(s.a)+' tot '+fKm(s.b))+'</span></div>';
     h+='<div class="facts num"><div><b>'+fKm(s.km)+'</b><span>km</span></div><div><b>'+(TR.hasEle?fM(s.up):'–')+'</b><span>m stijgen</span></div><div><b>'+(TR.hasEle?fM(s.dn):'–')+'</b><span>m dalen</span></div><div><b>'+fT(s.t)+'</b><span>uur lopen</span></div></div>';
     const pills=['<span class="pill '+g[1]+'">'+g[0]+'</span>'];if(TR.hasEle)pills.push('<span class="pill">hoogste punt '+fM(s.top)+' m</span>');if(s.t>8)pills.push('<span class="pill warn">ruim 8 uur lopen</span>');
-    if(trip.pois){const inS=trip.pois.filter(p=>p.d>=s.a&&p.d<=s.b),w=inS.filter(p=>p.t==='water'||p.t==='spring').length,hh=inS.filter(p=>p.t==='hut').length;pills.push('<span class="pill '+(w?'':'warn')+'">'+(w?w+(w===1?' waterpunt':' waterpunten'):'geen waterpunt bekend')+'</span>');if(hh)pills.push('<span class="pill">'+hh+(hh===1?' hut':' hutten')+' onderweg</span>')}
+    if(trip.pois){const inS=trip.pois.filter(p=>p.d>=s.a&&p.d<=s.b),w=inS.filter(p=>p.t==='water'||p.t==='spring').length,hh=inS.filter(p=>p.t==='hut').length;if(w)pills.push('<span class="pill">'+w+(w===1?' waterpunt':' waterpunten')+'</span>');if(hh)pills.push('<span class="pill">'+hh+(hh===1?' hut':' hutten')+' onderweg</span>')}
     h+='<div class="pills">'+pills.join('')+'</div></div>';
     if(k<n-1){const np=nightPlace(s.b),ns=np?null:nearSleep(s.b);
       h+='<div class="night"><span class="tent"><svg viewBox="0 0 24 24"><path d="M3 20L12 4l9 16H3z"/><path d="M12 20v-6"/></svg></span><span class="grow">Overnachting '+(np?'bij <b>'+esc(np.n)+'</b>, ':'op ')+'km <b class="num">'+fKm(s.b)+'</b></span><button class="btn small" data-mv="'+k+'" data-d="-1000">−1 km</button><button class="btn small" data-mv="'+k+'" data-d="1000">+1 km</button><button class="btn small danger" data-rm="'+k+'" aria-label="Overnachting verwijderen">×</button></div>';
@@ -1348,17 +1352,17 @@ async function renderWeer(){
   const list=$('#wList');if(!trip.start){list.innerHTML='<div class="card">Kies een startdatum om het weer per dag te zien.</div>';return}
   const S=stages(),me=++wxRun,keep={};let anyFresh=false;
   list.innerHTML=S.map(s=>'<div class="card" id="wx'+s.n+'"><div class="day"><h3>Dag '+s.n+'</h3><span>'+fDate(stageDate(s.n-1))+'</span></div><p class="note">Verwachting ophalen</p></div>').join('');
-  for(const s of S){const box=$('#wx'+s.n),d=stageDate(s.n-1),head='<div class="day"><h3>Dag '+s.n+'</h3><span>'+fDate(d)+' · '+fKm(s.km)+' km</span></div>';
+  await Promise.all(S.map(async s=>{const box=$('#wx'+s.n),d=stageDate(s.n-1),head='<div class="day"><h3>Dag '+s.n+'</h3><span>'+fDate(d)+' · '+fKm(s.km)+' km</span></div>';
     try{const g=await getWx(s);if(me!==wxRun)return;const w=g.w;keep[g.key]=w;if(g.fresh)anyFresh=true;const i=w.time.indexOf(iso(d));
       const old=g.stale?'<p class="note">Bewaarde verwachting van '+new Date(g.stale).toLocaleString(NL,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'. Geen verbinding.</p>':'';
-      if(i<0){box.innerHTML=head+'<p class="note">'+(iso(d)<w.time[0]?'Deze dag ligt in het verleden.':'Nog geen verwachting. Die komt er zodra de dag binnen 16 dagen valt.')+'</p>';continue}
+      if(i<0){box.innerHTML=head+'<p class="note">'+(iso(d)<w.time[0]?'Deze dag ligt in het verleden.':'Nog geen verwachting. Die komt er zodra de dag binnen 16 dagen valt.')+'</p>';return}
       const [txt,ic]=WMO[w.weather_code[i]]||['Onbekend','cloud'],tmax=w.temperature_2m_max[i],tmin=w.temperature_2m_min[i],pr=w.precipitation_sum[i],pp=w.precipitation_probability_max[i],gu=w.wind_gusts_10m_max[i];
       const pills=[];if(pr>=10)pills.push('<span class="pill warn">veel neerslag</span>');if(gu>=60)pills.push('<span class="pill warn">harde windstoten</span>');if(tmin<=0)pills.push('<span class="pill warn">vorst</span>');if(ic==='storm')pills.push('<span class="pill warn">onweer: mijd graten en toppen</span>');if(ic==='snow')pills.push('<span class="pill warn">sneeuw</span>');
       const hm=t=>t?String(t).slice(11,16):'–';
       box.innerHTML=head+'<div class="wx"><svg viewBox="0 0 48 48">'+ICON[ic]+'</svg><div><div class="t num">'+Math.round(tmax)+'° <small>/ '+Math.round(tmin)+'°</small></div><div>'+txt+'</div></div></div>'
         +'<div class="kv num"><div><span>Neerslag</span> '+(pr==null?'–':pr.toLocaleString(NL,{maximumFractionDigits:1})+' mm')+(pp==null?'':' · '+pp+'%')+'</div><div><span>Windstoten</span> '+(gu==null?'–':Math.round(gu)+' km/u')+'</div><div><span>Zon op</span> '+hm(w.sunrise[i])+'</div><div><span>Zon onder</span> '+hm(w.sunset[i])+'</div></div>'
         +'<div class="pills">'+pills.join('')+(TR.hasEle?'<span class="pill">op '+fM(s.top)+' m</span>':'')+'</div>'+old;
-    }catch(e){if(me!==wxRun)return;box.innerHTML=head+'<p class="note">Het weer kon niet worden opgehaald en er is geen bewaarde verwachting. Open dit tabblad opnieuw als je verbinding hebt.</p>'}}
+    }catch(e){if(me!==wxRun)return;box.innerHTML=head+'<p class="note">Het weer kon niet worden opgehaald en er is geen bewaarde verwachting. Open dit tabblad opnieuw als je verbinding hebt.</p>'}}));
   if(anyFresh){trip.wx={at:Date.now(),d:keep};save()}}
 
 /* ---------- onderweg: positie, opnemen, afwijk-waarschuwing ---------- */
@@ -1554,6 +1558,7 @@ async function routesAt(ll){if(RL.tapping)return;RL.tapping=true;const open=rout
   if(!items||!items.length){gPrev.clearLayers();const m=items?'Geen gemarkeerde route op dit punt. Tik precies op een gekleurde lijn.':'Routes ophalen lukte niet. Probeer het zo opnieuw.';
     if(routesOpen){RL.msg=m;renderRoutes()}else toast(m,2200);return}
   if(!routesOpen)openRoutes(null,true);$('#pRoutes').classList.add('small');setSheetH();
+  items=items.slice().sort((a,b)=>((NET[b.net]||[0,4])[1]-(NET[a.net]||[0,4])[1]));   // bij aantikken: de meest lokale route eerst
   RL.mode='tap';RL.items=items;RL.filter='all';RL.msg='';$('#reSearch').style.display='none';
   renderRoutes();$('#rBody').scrollTop=0;previewRoute(items[0])}
 async function routesByName(q){RL.mode='name';$('#reSearch').style.display='none';$('#rQ').value=q;
@@ -1710,7 +1715,7 @@ async function openLink(){const u=new URLSearchParams(location.search),id=+u.get
   setBusy('Route ophalen');$('#busy').style.display='flex';
   try{const g=await getGeom({id,span:0});
     await adoptTrack(g.coords.map(c=>c.slice()),g.name||'Bekende route',null,{osm:id,web:g.web,wiki:g.wiki,gaps:g.gaps});
-    if(u.get('hutten')){await run(loadPois);const hs=(trip.pois||[]).filter(q=>q.t==='hut'&&q.off<400).map(q=>q.d);if(hs.length&&hs.length<=20){trip.breaks=hs;refresh()}}
+    if(u.get('hutten')){await run(loadPois);const hs=[];(trip.pois||[]).filter(q=>q.t==='hut'&&q.off<400&&q.d>2000&&q.d<TR.total-2000).forEach(q=>{if(!hs.length||q.d-hs[hs.length-1]>2500)hs.push(q.d)});if(hs.length&&hs.length<=20){trip.breaks=hs;refresh()}}
     toast('Route geladen'+(trip.breaks.length?' met een overnachting bij elke hut langs de route. Pas de dagen aan onder Etappes.':'. Verdeel hem onder Etappes over dagen.'),7000)}
   catch(e){toast('De route uit de link kon niet worden geladen. Zoek hem via Routes.',6000)}
   $('#busy').style.display=pending?'flex':'none'}
