@@ -801,7 +801,10 @@ button{cursor:pointer;touch-action:manipulation}
 .row.between{justify-content:space-between}
 .grow{flex:1;min-width:0}
 .field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);flex:1;min-width:120px}
-.field input{font-size:16px;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:9px 10px;width:100%;min-height:42px}
+.field{min-width:0}
+.field input[type=date]{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%;text-align:left;line-height:1.3}
+.field input[type=date]::-webkit-date-and-time-value{text-align:left;min-height:1.3em}
+.field input{font-size:16px;box-sizing:border-box;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:9px 10px;width:100%;min-height:42px}
 .btn{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 14px;font-weight:600;min-height:44px}
 .btn.primary{background:var(--pine);color:var(--pine-ink);border-color:transparent}
 .btn.small{padding:6px 10px;min-height:36px;font-size:14px}
@@ -874,6 +877,24 @@ details summary{cursor:pointer;font-weight:600;padding:4px 0}
 .poi{width:24px;height:24px;border-radius:50%;background:#fff;border:2px solid #555;box-shadow:0 1px 3px rgba(0,0,0,.35);display:grid;place-items:center;color:#555}
 .poi svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .poi.hut,.poi.sleep{border-color:#7a3b12;color:#7a3b12}.poi.camp{border-color:#2f6b2f;color:#2f6b2f}.poi.water,.poi.spring{border-color:#1b6fd6;color:#1b6fd6}.poi.train{border-color:#222;color:#222}
+#navTop{position:absolute;z-index:520;left:12px;right:76px;top:calc(env(safe-area-inset-top,0px) + 10px);background:var(--pine);color:var(--pine-ink);border-radius:16px;padding:12px 14px;box-shadow:var(--shadow)}
+#navBig{display:block;font-size:26px;letter-spacing:-.01em}#navSub{font-size:14px;opacity:.9}
+#navWarn{margin-top:8px;background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:6px 10px;font-size:14px;font-weight:700}
+#navBar{position:absolute;z-index:510;left:0;right:0;bottom:0;background:var(--card);border-radius:18px 18px 0 0;box-shadow:0 -2px 12px rgba(16,28,22,.14);padding:12px 14px 12px}
+#navBar .facts{margin-top:0}#navBar .facts b{font-size:17px}
+body.navon #searchform,body.navon #results,body.navon #drawbar,body.navon #offroute,body.navon #btnRoutes,body.navon #btnDraw,body.navon #btnMore,body.navon #legBtn,body.navon #legCard{display:none!important}
+body.navon #tools{top:calc(env(safe-area-inset-top,0px) + 10px)}
+#legBtn{position:absolute;z-index:480;left:10px;bottom:calc(var(--sheet-h,0px) + 46px);border:0;background:var(--card);color:var(--ink);border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:600;box-shadow:var(--shadow)}
+#legCard{position:absolute;z-index:730;left:10px;right:76px;bottom:calc(var(--sheet-h,0px) + 82px);max-height:52%;overflow-y:auto;background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px 14px;font-size:13.5px}
+#legCard b{display:block;margin:8px 0 4px}#legCard b:first-child{margin-top:0}
+#legCard ul{list-style:none;margin:0;padding:0}#legCard li{display:flex;align-items:center;gap:8px;padding:2px 0}
+#legCard p{margin:4px 0 0;color:var(--muted);font-size:12.5px}
+#legCard i{display:inline-block;width:22px;height:5px;border-radius:3px;flex:none}
+#legCard i.ln{height:0;border-radius:0;background:none}
+#legCard i.dot{width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid;margin:0 4px}
+#legCard i.sq{width:18px;height:18px;border-radius:5px;background:var(--ink);color:var(--paper);font:700 10px var(--font);font-style:normal;display:grid;place-items:center;margin:0 2px}
+.me{position:relative;}
+.me.dir::after{content:"";position:absolute;left:50%;top:50%;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:16px solid #1b6fd6;transform:translate(-50%,-50%) rotate(var(--h,0deg)) translateY(-19px);filter:drop-shadow(0 0 2px #fff)}
 .me{width:18px;height:18px;border-radius:50%;background:#1b6fd6;border:3px solid #fff;box-shadow:0 0 0 2px rgba(27,111,214,.35),0 1px 4px rgba(0,0,0,.4)}
 .leaflet-popup-content{margin:10px 12px;font-size:14px}
 .leaflet-popup-content .btn{display:block;width:100%;margin-top:6px}
@@ -936,6 +957,7 @@ details summary{cursor:pointer;font-weight:600;padding:4px 0}
       <div><b class="num" id="sDn">0</b><span>m dalen</span></div>
       <div><b class="num" id="sT">0:00</b><span id="sTl">looptijd</span></div>
     </div>
+    <button class="btn small" id="navGo" type="button" hidden style="width:100%;margin-top:8px">Start navigatie</button>
     <button class="btn small primary" id="nextStep" type="button" hidden style="width:100%;margin-top:8px">Verdeel over dagen</button>
     <div id="profilewrap" hidden><svg id="profile" role="img" aria-label="Hoogteprofiel van de route"></svg><div id="scrub" class="num"></div></div>
   </div>
@@ -950,6 +972,24 @@ details summary{cursor:pointer;font-weight:600;padding:4px 0}
     <form id="rForm" autocomplete="off"><input type="search" id="rQ" placeholder="Naam of nummer, bv. GR 20" aria-label="Zoek een route op naam of nummer" enterkeyhint="search"><button class="btn primary" type="submit">Zoek</button></form>
     <div id="rBody"></div>
   </section>
+  <div id="navTop" hidden><b id="navBig" class="num"></b><span id="navSub"></span><div id="navWarn" hidden></div></div>
+  <div id="navBar" hidden>
+    <div class="facts num"><div><b id="nvD">–</b><span>km vandaag</span></div><div><b id="nvU">–</b><span>m stijgen nog</span></div><div><b id="nvE">–</b><span>aankomst</span></div><div><b id="nvC">–</b><span>kompas</span></div></div>
+    <div class="pills" id="navNext"></div>
+    <div class="row" style="margin-top:10px"><button class="btn grow" id="navCenter" type="button">Centreer</button><button class="btn danger grow" id="navStop" type="button">Stop navigatie</button></div>
+  </div>
+  <button id="legBtn" type="button" aria-expanded="false">Legenda</button>
+  <div id="legCard" hidden>
+    <b>Gemarkeerde routes op de kaart</b>
+    <ul><li><i style="background:#e0282e"></i>Internationaal, zoals de E-paden</li><li><i style="background:#2f5fd0"></i>Nationaal</li><li><i style="background:#f0a020"></i>Regionaal</li><li><i style="background:#8a3fc0"></i>Lokaal</li></ul>
+    <p>Lopen twee routes over hetzelfde pad, dan zie je de ene kleur als stippen op de andere.</p>
+    <b>Jouw tocht</b>
+    <ul><li><i style="background:var(--route)"></i><i style="background:var(--route2);margin-left:-6px"></i>Om en om per dag</li><li><i class="sq">1</i>Overnachting na die dag</li><li><i style="background:#1b6fd6"></i>Voorbeeld van een aangetikte route</li></ul>
+    <b>Plekken langs de route</b>
+    <ul><li><i class="dot" style="border-color:#7a3b12"></i>Hut, hotel of pension</li><li><i class="dot" style="border-color:#2f6b2f"></i>Camping</li><li><i class="dot" style="border-color:#1b6fd6"></i>Drinkwater of bron</li><li><i class="dot" style="border-color:#555"></i>Schuilhut</li><li><i class="dot" style="border-color:#222"></i>Station</li></ul>
+    <b>Offline schetskaart</b>
+    <ul><li><i class="ln" style="border-top:2px dashed #4d3b2a"></i>Pad</li><li><i class="ln" style="border-top:2px dotted #c21f1f"></i>Zwaar bergpad of klettersteig</li><li><i style="background:#8b6b3f"></i>Karrenspoor</li><li><i style="background:#f3d36b"></i>Doorgaande weg</li><li><i style="background:#5b9bd0"></i>Water</li></ul>
+  </div>
   <div id="toast" role="status"></div>
 </div>
 
@@ -982,8 +1022,8 @@ function hav(a,b){const R=6371000,t=Math.PI/180,dl=(b[0]-a[0])*t,dn=(b[1]-a[1])*
   const s=Math.sin(dl/2)**2+Math.cos(a[0]*t)*Math.cos(b[0]*t)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(s))}
 let toastT;function toast(msg,ms=3600){const t=$('#toast');t.textContent=msg;t.style.bottom=(curTab==='Kaart'?sheetH()+12:16)+'px';t.style.display='block';clearTimeout(toastT);toastT=setTimeout(()=>t.style.display='none',ms)}
 const HOSTED=/^https?:$/.test(location.protocol);
-let routesOpen=false;
-function sheetH(){const e=routesOpen?$('#pRoutes'):$('#sheet');return e?e.offsetHeight:0}
+let routesOpen=false;var nav={on:false,i:null};
+function sheetH(){const e=typeof nav!=='undefined'&&nav.on?$('#navBar'):routesOpen?$('#pRoutes'):$('#sheet');return e?e.offsetHeight:0}
 function setSheetH(){requestAnimationFrame(()=>document.documentElement.style.setProperty('--sheet-h',sheetH()+'px'))}
 
 /* ---------- opslag ---------- */
@@ -1263,12 +1303,12 @@ function showSketch(){autoSketch=false;store.base='sketch';save();applyLayers();
 
 /* ---------- cijfers en profiel ---------- */
 function renderSheet(){
-  const has=!!TR;$('#empty').hidden=has;$('#stats').hidden=!has;$('#profilewrap').hidden=!has;
+  const has=!!TR;if(!has)$('#navGo').hidden=true;$('#empty').hidden=has;$('#stats').hidden=!has;$('#profilewrap').hidden=!has;
   $('#emptyT').textContent=trip.wps.length===1?'Startpunt gezet. Tik op de kaart voor het volgende punt.':'Nog geen route in deze tocht.';$('#emptyB').hidden=trip.wps.length>0||drawing;
   $('#dbUndo').disabled=!trip.wps.length;if(drawing)setDrawing(true);
   $('#grabT').textContent=has?($('#sheet').classList.contains('closed')?'Toon hoogteprofiel':'Verberg hoogteprofiel'):'';
   if(has){const n=TR.P.length-1,days=trip.breaks.length+1;$('#sKm').textContent=fKm(TR.total);$('#sUp').textContent=TR.hasEle?fM(TR.UP[n]):'–';$('#sDn').textContent=TR.hasEle?fM(TR.DN[n]):'–';
-    $('#nextStep').hidden=!(days===1&&TR.hasEle&&TR.T[n]>9);$('#nextStep').textContent='Verdeel over '+Math.ceil(TR.T[n]/6.5)+' dagen';
+    $('#navGo').hidden=false;$('#nextStep').hidden=!(days===1&&TR.hasEle&&TR.T[n]>9);$('#nextStep').textContent='Verdeel over '+Math.ceil(TR.T[n]/6.5)+' dagen';
     $('#sT').textContent=fT(TR.T[n]);$('#sTl').textContent=days>1?'uur · '+days+' dgn':'uur lopen';renderProfile()}
   setSheetH()}
 let PF=null;
@@ -1379,6 +1419,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 function onPos(p){mePos={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy};const ll=[mePos.lat,mePos.lng];
   if(!meMarker){meCircle=L.circle(ll,{radius:mePos.acc,color:'#1b6fd6',weight:1,fillOpacity:.12,interactive:false}).addTo(gMe);meMarker=L.marker(ll,{icon:L.divIcon({className:'',html:'<div class="me"></div>',iconSize:[18,18],iconAnchor:[9,9]}),interactive:false,zIndexOffset:900}).addTo(gMe)}
   else{meMarker.setLatLng(ll);meCircle.setLatLng(ll).setRadius(mePos.acc)}
+  if(heading==null&&typeof p.coords.heading==='number'&&!isNaN(p.coords.heading)&&p.coords.speed>0.5)setDir(p.coords.heading,false);else if(heading!=null)setDir(heading,true);
   if(follow){if(followInit){map.setView(ll,Math.max(map.getZoom(),14));followInit=false}else map.panTo(ll,{animate:true})}
   if(rec.on&&mePos.acc<=60){const last=rec.pts[rec.pts.length-1],d=last?hav(last,ll):0;
     if(!last||d>=8){rec.dist+=d;rec.pts.push([r5(mePos.lat),r5(mePos.lng),p.coords.altitude!=null?Math.round(p.coords.altitude):null])}}
@@ -1386,7 +1427,7 @@ function onPos(p){mePos={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coor
     if(nr.d>lim&&(rec.on||nr.d<3000)){offCount++;if(offCount>=2){chip.textContent='Je bent '+(nr.d>=1000?fKm(nr.d)+' km':fM(nr.d)+' m')+' van de route af';chip.style.display='block';wasOff=true;
         if(rec.on&&Date.now()-lastAlert>60000){lastAlert=Date.now();beep()}}}
     else{offCount=0;chip.style.display='none';if(wasOff&&nr.d<=lim){wasOff=false;if(rec.on)toast('Je bent weer op de route.',2500)}}}
-  locBtn();if(curTab==='Onderweg')renderOnderweg()}
+  locBtn();navUpdate();if(curTab==='Onderweg')renderOnderweg()}
 let followInit=false;
 function locBtn(){const b=$('#btnLocate');b.classList.toggle('on',watchId!=null&&follow);b.classList.toggle('has',watchId!=null&&!follow)}
 function startGps(center){if(!navigator.geolocation){toast('Dit toestel deelt geen locatie met de app.');return}
@@ -1407,6 +1448,7 @@ setInterval(()=>{const e=$('#recT');if(e&&rec.on)e.textContent=fT((Date.now()-re
 const SOS=[['Oostenrijk','140','Bergrettung. In Vorarlberg 144'],['Zwitserland','1414','Rega, reddingshelikopter. In Wallis 144'],['Tsjechië','1210','Horská služba, bergredding'],['Slowakije','18 300','HZS, bergredding'],['Duitsland','112','Bergwacht via 112'],['Italië','112','Soccorso Alpino via 112'],['Slovenië','112','Bergredding GRZS via 112'],['Spanje','112','Bergredding via 112'],['Zweden','112','Fjällräddningen via 112'],['IJsland','112','ICE-SAR via 112'],['Ierland','112','Ook 999']];
 function renderOnderweg(){
   const el=$('#pOnderweg'),sc=el.scrollTop;let h='<h1>Onderweg</h1><p class="sub">Waar je bent op de route, en wie je belt als het misgaat.</p>';
+  h+='<div class="card"><div class="row between"><div><b>Live navigatie</b><div class="note" style="margin:0">Volgt je op de route, per dag</div></div><button class="btn small primary" id="navGo2"'+(TR?'':' disabled')+'>Start navigatie</button></div></div>';
   h+='<div class="card"><div class="row between"><b>Wandeling opnemen</b><button class="btn small '+(rec.on?'danger':'primary')+'" id="recBtn">'+(rec.on?'Stop en bewaar':'Start wandeling')+'</button></div>';
   if(rec.on)h+='<div class="facts num" style="grid-template-columns:repeat(3,1fr)"><div><b id="recT">'+fT((Date.now()-rec.t0)/3600000)+'</b><span>uur onderweg</span></div><div><b>'+fKm(rec.dist)+'</b><span>km opgenomen</span></div><div><b>'+rec.pts.length+'</b><span>GPS-punten</span></div></div>';
   h+='<label class="row" style="margin-top:12px;font-size:15px"><input type="checkbox" id="offChk"'+(store.offAlert!==false?' checked':'')+'> Waarschuw als ik van de route afwijk</label><p class="note">Een web-app kan je GPS alleen volgen zolang hij open staat en het scherm aan is. Tijdens een opname houdt de app het scherm zelf aan; dat kost batterij.</p></div>';
@@ -1424,6 +1466,7 @@ function renderOnderweg(){
   h+='<div class="card"><ul class="list">'+SOS.map(r=>'<li><span>'+r[0]+'<small>'+r[2]+'</small></span><a href="tel:'+r[1].replace(/\s/g,'')+'">'+r[1]+'</a></li>').join('')+'</ul><p class="note">112 zoekt zelf een ander netwerk als je eigen provider geen bereik heeft. Nummers als 140 en 1414 doen dat niet. Twijfel je, bel dan 112 en vraag om de bergredding.</p></div>';
   el.innerHTML=h;el.scrollTop=sc;
   $('#gpsBtn').onclick=()=>{if(watchId!=null)stopGps();else{startGps(false);renderOnderweg()}};
+  $('#navGo2').onclick=startNav;
   $('#recBtn').onclick=()=>{if(rec.on)stopRec();else startRec()};
   $('#offChk').onchange=e=>{store.offAlert=e.target.checked;if(!store.offAlert)$('#offroute').style.display='none';save()}}
 
@@ -1726,6 +1769,42 @@ async function openLink(){const u=new URLSearchParams(location.search),id=+u.get
   catch(e){toast('De route uit de link kon niet worden geladen. Zoek hem via Routes.',6000)}
   $('#busy').style.display=pending?'flex':'none'}
 openLink();
+/* ---------- live navigatie ---------- */
+let heading=null;const DIRS=['N','NO','O','ZO','Z','ZW','W','NW'];
+function setDir(h,compass){const el=document.querySelector('.me');if(el){el.classList.add('dir');el.style.setProperty('--h',h+'deg')}
+  if(nav.on&&$('#nvC'))$('#nvC').textContent=DIRS[Math.round(h/45)%8]+' '+Math.round(h)+'°'}
+function onOri(e){let h=null;if(typeof e.webkitCompassHeading==='number')h=e.webkitCompassHeading;else if(e.absolute&&typeof e.alpha==='number')h=360-e.alpha;
+  if(h==null||isNaN(h))return;h=(h+360)%360;if(heading!=null){let d=h-heading;if(d>180)d-=360;if(d<-180)d+=360;h=(heading+d*.35+360)%360}heading=h;setDir(h,true)}
+let oriOn=false;
+async function askCompass(){if(oriOn)return true;try{if(typeof DeviceOrientationEvent!=='undefined'&&DeviceOrientationEvent.requestPermission){if(await DeviceOrientationEvent.requestPermission()!=='granted')return false}
+    window.addEventListener('deviceorientationabsolute',onOri,true);window.addEventListener('deviceorientation',onOri,true);oriOn=true;return true}catch(e){return false}}
+async function startNav(){if(!TR){toast('Kies of teken eerst een route.');return}
+  const comp=await askCompass();   // moet direct op de tik volgen, anders vraagt iOS geen toestemming
+  if(routesOpen)closeRoutes();setDrawing(false);showTab('Kaart');nav.on=true;nav.i=null;document.body.classList.add('navon');$('#navTop').hidden=false;$('#navBar').hidden=false;$('#sheet').style.display='none';
+  if(!rec.on){rec={on:true,pts:[],dist:0,t0:Date.now()};offCount=0;lastAlert=0;try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();actx.resume()}catch(e){}}
+  keepAwake(true);startGps(true);map.setZoom(Math.max(map.getZoom(),15));$('#nvC').textContent='–';navUpdate();setSheetH();map.invalidateSize();
+  if(!comp)toast('Geen toegang tot het kompas. De pijl volgt dan je looprichting zodra je beweegt.',5000)}
+function stopNav(){nav.on=false;document.body.classList.remove('navon');$('#navTop').hidden=true;$('#navBar').hidden=true;$('#sheet').style.display='';
+  if(rec.on)stopRec();else keepAwake(false);renderSheet();map.invalidateSize()}
+function navUpdate(){if(!nav.on||!TR)return;
+  if(!mePos){$('#navBig').textContent='GPS zoeken';$('#navSub').textContent='Ga buiten staan met vrij zicht op de hemel.';$('#navWarn').hidden=true;return}
+  const q=[mePos.lat,mePos.lng];let bi=-1,bd=Infinity;
+  if(nav.i!=null){const lo=idxAt(Math.max(0,TR.D[nav.i]-300)),hi=idxAt(Math.min(TR.total,TR.D[nav.i]+2500));for(let i=lo;i<=hi;i++){const d=hav(q,TR.P[i]);if(d<bd){bd=d;bi=i}}}   // eerst vlak vóór je zoeken: voorkomt verspringen op lussen
+  if(bi<0||bd>120){const nr=nearest(q);bi=nr.i;bd=nr.d}
+  nav.i=bi;const done=TR.D[bi],B=bounds();let k=0;while(k<B.length-2&&B[k+1]<=done+1)k++;
+  const a=B[k],b=B[k+1],j=idxAt(b),ia=idxAt(a),left=Math.max(0,b-done),tl=Math.max(0,TR.T[j]-TR.T[bi]),last=k===B.length-2,np=last?null:nightPlace(b),days=B.length-1;
+  $('#navBig').textContent=left<60?(last?'Je bent er':'Einde van dag '+(k+1)):fKm(left)+' km · '+fT(tl)+' u';
+  $('#navSub').textContent='tot '+(np?np.n:last?'de finish':'je overnachting')+(days>1?' · dag '+(k+1)+' van '+days:'');
+  const off=bd>Math.max(60,mePos.acc*1.5);$('#navWarn').hidden=!off;if(off)$('#navWarn').textContent='Je bent '+(bd>=1000?fKm(bd)+' km':fM(bd)+' m')+' van de route af';
+  $('#nvD').textContent=fKm(done-a);$('#nvU').textContent=TR.hasEle?fM(TR.UP[j]-TR.UP[bi]):'–';
+  $('#nvE').textContent=new Date(Date.now()+tl*36e5).toLocaleTimeString(NL,{hour:'2-digit',minute:'2-digit'});
+  const pills=[];if(trip.pois){const w=trip.pois.find(p=>(p.t==='water'||p.t==='spring')&&p.d>done+50&&p.d<=b),h=trip.pois.find(p=>(p.t==='hut'||p.t==='shelter')&&p.d>done+50&&p.d<b-200);
+    if(w)pills.push('<span class="pill">water over '+fKm(w.d-done)+' km</span>');if(h)pills.push('<span class="pill">'+esc(h.n)+' over '+fKm(h.d-done)+' km</span>')}
+  if(days>1)pills.push('<span class="pill">'+fKm(TR.total-done)+' km tot de finish</span>');$('#navNext').innerHTML=pills.join('')}
+$('#navGo').onclick=startNav;$('#navStop').onclick=stopNav;
+$('#navCenter').onclick=()=>{follow=true;if(mePos)map.setView([mePos.lat,mePos.lng],Math.max(map.getZoom(),15));locBtn()};
+setInterval(()=>{if(nav.on)navUpdate()},20000);
+$('#legBtn').onclick=()=>{const c=$('#legCard');c.hidden=!c.hidden;$('#legBtn').setAttribute('aria-expanded',String(!c.hidden))};
 
 </script>
 </body>
