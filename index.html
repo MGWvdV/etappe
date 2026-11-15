@@ -1234,28 +1234,30 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function downloadSketch(){
   const pts=[];let acc=0;for(let i=0;i<TR.P.length;i++)if(i===0||TR.D[i]-acc>=250||i===TR.P.length-1){pts.push(TR.P[i]);acc=TR.D[i]}
   const CH=20,chunks=[];for(let i=0;i<pts.length-1;i+=CH-1)chunks.push(pts.slice(i,i+CH));
-  const ways=new Map(),nodes=new Map();
+  const ways=new Map(),nodes=new Map(),sig=TR.P.length+':'+Math.round(TR.total),t0=Date.now();
+  const prev=SK&&SK.sig===sig&&SK.chunks===chunks.length&&Array.isArray(SK.done)?SK:null,doneSet=new Set(prev?prev.done:[]);   // eerder opgehaalde stukken blijven staan
+  if(prev){prev.lines.forEach(l=>ways.set(l.i,l));prev.pts.forEach(q=>nodes.set(q.i,q))}
   const ingest=j=>{
     (j.elements||[]).forEach(e=>{const t=e.tags||{};
       if(e.type==='way'&&e.geometry&&!ways.has(e.id)){const k=wayClass(t);if(!k)return;const c=[];let last=null;
-        e.geometry.forEach((g,i)=>{if(!g)return;const pt=[g.lat,g.lon];if(last&&i<e.geometry.length-1&&hav(last,pt)<4)return;c.push(r5(g.lat),r5(g.lon));last=pt});if(c.length>=4)ways.set(e.id,{k,c})}
+        e.geometry.forEach((g,i)=>{if(!g)return;const pt=[g.lat,g.lon];if(last&&i<e.geometry.length-1&&hav(last,pt)<4)return;c.push(r5(g.lat),r5(g.lon));last=pt});if(c.length>=4)ways.set(e.id,{k,c,i:e.id})}
       else if(e.type==='node'&&!nodes.has(e.id)){const ele=parseFloat(t.ele);
-        if(t.place&&t.name)nodes.set(e.id,{k:'place',p:t.place,n:t.name.slice(0,40),lat:r5(e.lat),lng:r5(e.lon)});
-        else if((t.natural==='peak'||t.natural==='saddle')&&(t.name||isFinite(ele)))nodes.set(e.id,{k:t.natural,n:(t.name||'').slice(0,40),e:isFinite(ele)?Math.round(ele):null,lat:r5(e.lat),lng:r5(e.lon)})}});};
-  const todo=chunks.map((_,c)=>c),tries=new Array(chunks.length).fill(0);let ok=0,dead=false;setBusy('Offline kaart ophalen 0%');
-  const worker=async u=>{let bad=0;while(todo.length&&!dead&&bad<3){const c=todo.shift(),B=bb(chunks[c],1500),B2=bb(chunks[c],3000);
+        if(t.place&&t.name)nodes.set(e.id,{i:e.id,k:'place',p:t.place,n:t.name.slice(0,40),lat:r5(e.lat),lng:r5(e.lon)});
+        else if((t.natural==='peak'||t.natural==='saddle')&&(t.name||isFinite(ele)))nodes.set(e.id,{i:e.id,k:t.natural,n:(t.name||'').slice(0,40),e:isFinite(ele)?Math.round(ele):null,lat:r5(e.lat),lng:r5(e.lon)})}});};
+  const todo=chunks.map((_,c)=>c).filter(c=>!doneSet.has(c)),tries=new Array(chunks.length).fill(0);let dead=false;const pct=()=>setBusy('Offline kaart ophalen '+Math.round(doneSet.size/chunks.length*100)+'%');pct();
+  const worker=async u=>{let bad=0;while(todo.length&&!dead&&bad<3&&Date.now()-t0<240000){const c=todo.shift(),B=bb(chunks[c],1500),B2=bb(chunks[c],3000);
       const q='[out:json][timeout:50];(way["highway"]'+B+';way["waterway"~"^(river|stream|canal)$"]'+B+';way["natural"~"^(water|glacier|cliff)$"]'+B+';way["aerialway"]'+B+';way["railway"="rail"]'+B+';node["natural"~"^(peak|saddle)$"]'+B2+';node["place"~"^(city|town|village|hamlet)$"]'+B2+';);out geom qt;';
-      try{const r=await fetchT(u,60000,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});if(!r.ok)throw new Error('status '+r.status);const jj=await r.json();if(jj&&jj.remark&&/error|timed out|timeout/i.test(jj.remark))throw new Error('dienst gaf een foutmelding');ingest(jj);ok++;bad=0;setBusy('Offline kaart ophalen '+Math.round(ok/chunks.length*100)+'%');await wait(700)}
-      catch(e){bad++;tries[c]++;if(tries[c]>=5)dead=true;else todo.push(c);await wait(5000)}}};
-  await Promise.all(OVP.map(worker));if(ok<chunks.length)throw new Error('schetskaart onvolledig');
-
-  const v={at:Date.now(),sig:TR.P.length+':'+Math.round(TR.total),lines:[...ways.values()],pts:[...nodes.values()]};
+      try{const r=await fetchT(u,60000,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});if(!r.ok)throw new Error('status '+r.status);const jj=await r.json();if(jj&&jj.remark&&/error|timed out|timeout/i.test(jj.remark))throw new Error('dienst gaf een foutmelding');ingest(jj);doneSet.add(c);bad=0;pct();await wait(700)}
+      catch(e){bad++;tries[c]++;if(tries[c]<4)todo.push(c);await wait(5000)}}};
+  await Promise.all(OVP.map(worker));if(!doneSet.size)throw new Error('schetskaart leeg');
+  const v={at:Date.now(),sig,chunks:chunks.length,done:[...doneSet],lines:[...ways.values()],pts:[...nodes.values()]};
   await TDB.put(trip.id,v,'v');if(!(await TDB.get(trip.id,'v')))throw new Error('opslaan');
-  SK=v;trip.sketch={at:v.at,n:v.lines.length,sig:v.sig};drawSketch()}
+  SK=v;trip.sketch={at:v.at,n:v.lines.length,sig:v.sig,part:doneSet.size<chunks.length?doneSet.size+' van '+chunks.length:null};drawSketch()}
 async function prepOffline(){if(!TR)return;
   try{if(!trip.pois)await loadPois();await downloadSketch();
     if(trip.start){const keep={};let ok=false;for(const s of stages()){try{const g=await getWx(s);keep[g.key]=g.w;if(!g.stale)ok=true}catch(e){}}if(ok)trip.wx={at:Date.now(),d:keep}}
-    toast('Deze tocht staat offline klaar: schetskaart met '+trip.sketch.n.toLocaleString(NL)+' paden, wegen en waterlopen'+(trip.pois?', plus '+trip.pois.length+' plekken om te slapen, water te tappen of in te stappen':'')+'.',6500)}
+    if(trip.sketch.part)toast('De offline kaart is voor een deel opgehaald: '+trip.sketch.part+' stukken. De kaartdienst is druk. Tik later nog eens op klaarzetten; wat er al is blijft bewaard.',9000);
+    else toast('Deze tocht staat offline klaar: schetskaart met '+trip.sketch.n.toLocaleString(NL)+' paden, wegen en waterlopen'+(trip.pois?', plus '+trip.pois.length+' plekken om te slapen, water te tappen of in te stappen':'')+'.',6500)}
   catch(e){toast(navigator.onLine===false?'Je bent offline. Klaarzetten kan alleen met verbinding.':'De offline kaart ophalen lukte niet. De dienst is druk; probeer het over een paar minuten opnieuw.',6000)}}
 function showSketch(){autoSketch=false;store.base='sketch';save();applyLayers();showTab('Kaart');fit()}
 
@@ -1452,8 +1454,8 @@ function renderTochten(){
   h+='<button class="btn" id="tNew" style="width:100%">Nieuwe tocht</button>';
   h+='<h2>Offline</h2><div class="card">';
   if(TR){const sk=trip.sketch,chg=sk&&sk.sig!==TR.P.length+':'+Math.round(TR.total);
-    h+='<p style="margin:0"><b>Offline schetskaart</b></p><p class="note" style="margin-top:4px">'+(sk?'Bewaard op '+new Date(sk.at).toLocaleDateString(NL,{day:'numeric',month:'long'})+': '+sk.n.toLocaleString(NL)+' paden, wegen en waterlopen, met toppen en dorpen.':'Een eenvoudige kaart die de app zelf tekent: paden, wegen, beken, meren, toppen, dorpen, hutten en water tot ongeveer 1,5 km aan weerszijden van je route. Werkt zonder verbinding.')+'</p>'+(chg?'<div class="pills"><span class="pill warn">route gewijzigd sinds het klaarzetten</span></div>':'');
-    h+='<div class="row" style="margin-top:10px"><button class="btn '+(sk&&!chg?'':'primary')+' grow" id="offPrep">'+(sk?'Opnieuw klaarzetten':'Zet deze tocht offline klaar')+'</button>'+(sk?'<button class="btn grow" id="offView">Bekijk schetskaart</button>':'')+'</div>';
+    h+='<p style="margin:0"><b>Offline schetskaart</b></p><p class="note" style="margin-top:4px">'+(sk?'Bewaard op '+new Date(sk.at).toLocaleDateString(NL,{day:'numeric',month:'long'})+': '+sk.n.toLocaleString(NL)+' paden, wegen en waterlopen, met toppen en dorpen.':'Een eenvoudige kaart die de app zelf tekent: paden, wegen, beken, meren, toppen, dorpen, hutten en water tot ongeveer 1,5 km aan weerszijden van je route. Werkt zonder verbinding.')+'</p>'+(chg?'<div class="pills"><span class="pill warn">route gewijzigd sinds het klaarzetten</span></div>':'')+(sk&&sk.part&&!chg?'<div class="pills"><span class="pill warn">nog niet compleet: '+sk.part+' stukken opgehaald</span></div>':'');
+    h+='<div class="row" style="margin-top:10px"><button class="btn '+(sk&&!chg&&!sk.part?'':'primary')+' grow" id="offPrep">'+(sk?(sk.part&&!chg?'Rest ophalen':'Opnieuw klaarzetten'):'Zet deze tocht offline klaar')+'</button>'+(sk?'<button class="btn grow" id="offView">Bekijk schetskaart</button>':'')+'</div>';
     h+='<p class="note">Stippellijn: pad. Rood gestippeld: zwaar bergpad of klettersteig. Bruin: karrenspoor. Geel: doorgaande weg. Geen hoogtelijnen; gebruik daarvoor het hoogteprofiel.</p><hr style="border:0;border-top:1px solid var(--line);margin:14px 0">'}
   if(TR){const c13=coverage(13),c14=coverage(14);const pc=c=>Math.round(c.have/c.need*100);
     h+='<p style="margin:0"><b>Gewone kaart</b>, bewaard langs deze route ('+(store.base==='osm'?'standaardkaart':'topografisch')+'):</p><div class="facts num" style="grid-template-columns:repeat(2,1fr)"><div><b>'+pc(c13)+'%</b><span>overzicht</span></div><div><b>'+pc(c14)+'%</b><span>detail</span></div></div>';
