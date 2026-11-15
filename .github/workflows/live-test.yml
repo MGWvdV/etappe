@@ -1,0 +1,35 @@
+name: Live test
+# Draait de app in een telefoonbrowser tegen de echte kaart-, route- en weerdiensten
+# en zet schermafbeeldingen en een logboek op de branch "testruns".
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.ci/**']
+permissions:
+  contents: write
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm i --no-save playwright@1.48.2 http-server@14.1.1
+      - run: npx playwright install --with-deps chromium
+      - name: Run
+        run: |
+          npx http-server . -p 8080 -s -c-1 &
+          sleep 2
+          mkdir -p out
+          node .ci/live.mjs || true
+      - name: Publish results
+        run: |
+          cd out
+          git init -q -b testruns
+          git config user.name "live-test"
+          git config user.email "noreply@github.com"
+          git add -A
+          git commit -q -m "Live test ${GITHUB_SHA::7} run ${GITHUB_RUN_NUMBER}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" testruns
