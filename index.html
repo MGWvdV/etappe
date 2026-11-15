@@ -1604,24 +1604,29 @@ async function geomOverpass(id){const j=await overpassFast('[out:json][timeout:9
   (function walk(x,depth){if(!x||seen.has(x.id)||depth>3)return;seen.add(x.id);(x.members||[]).forEach(m=>{if(/alternat|excursion|approach|connection|detour|variant/i.test(m.role||''))return;
     if(m.type==='way'&&m.geometry){const g=m.geometry.filter(Boolean).map(p=>[r5(p.lat),r5(p.lon),null]);if(g.length>1)segs.push(g)}else if(m.type==='relation')walk(rels[m.ref],depth+1)})})(rels[id],0);
   return geomFrom(segs,rels[id]&&rels[id].tags)}
-async function geomWmt(id){const r=await fetchT(WMT+'details/relation/'+id+'/gpx',25000);if(!r.ok)throw new Error('wmt');const doc=new DOMParser().parseFromString(await r.text(),'application/xml');if(doc.querySelector('parsererror'))throw new Error('gpx');
-  const segs=[...doc.getElementsByTagName('trkseg')].map(sg=>[...sg.getElementsByTagName('trkpt')].map(q=>[r5(parseFloat(q.getAttribute('lat'))),r5(parseFloat(q.getAttribute('lon'))),null]).filter(c=>isFinite(c[0])&&isFinite(c[1])));
-  const nm=doc.querySelector('metadata > name, trk > name');return geomFrom(segs,{name:nm?nm.textContent.trim():''})}
+async function geomWmt(id){const r=await fetchT(WMT+'details/relation/'+id,25000);if(!r.ok)throw new Error('wmt');const j=await r.json();if(!j||!j.route)throw new Error('wmt vorm');
+  const inv=c=>[r5((2*Math.atan(Math.exp(c[1]/6378137))-Math.PI/2)*180/Math.PI),r5(c[0]/20037508.34*180),null],lines=[];
+  (function walk(o,depth){if(!o||typeof o!=='object'||depth>12)return;
+    if(o.geometry&&Array.isArray(o.geometry.coordinates)){const l=o.geometry.coordinates.map(inv).filter(c=>isFinite(c[0])&&isFinite(c[1])&&Math.abs(c[0])<=90);if(l.length>1)lines.push(l)}
+    else if(Array.isArray(o.ways))o.ways.forEach(w=>walk(w,depth+1));
+    else if(Array.isArray(o.forward))o.forward.forEach(w=>walk(w,depth+1));
+    else if(Array.isArray(o.main))o.main.forEach(w=>walk(w,depth+1))})(j.route,0);
+  if(!lines.length)throw new Error('wmt leeg');
+  const all=[];let gaps=0;lines.forEach(l=>{if(all.length){const d=hav(all[all.length-1],l[0]);if(d<1)l=l.slice(1);else if(d>120)gaps++}l.forEach(c=>all.push(c))});
+  const g=geomFrom([all],Object.assign({},j.tags||{},{name:(j.tags&&j.tags.name)||j.name||''}));g.gaps=gaps;
+  const t=j.tags||{},km=parseFloat(String(t.distance||'').replace(',','.'));
+  g.info={desc:(t.description||t['description:en']||t.note||'').slice(0,220),op:(t.operator||'').slice(0,60),sym:(t.symbol||'').slice(0,80),from:t.from||'',to:t.to||'',km:isFinite(km)&&km>0&&km<20000?km:null};return g}
 async function loadGeom(r){const old=await TDB.get(r.id,'g');if(old&&old.coords&&Date.now()-old.at<30*864e5)return old;
   const g=await firstOf([geomWmt(r.id),geomOverpass(r.id)]);g.at=Date.now();TDB.put(r.id,g,'g');return g}
 async function moreInfo(r){if(!r.thin)return;r.thin=false;
   try{const it=parseRoutes(await overpassFast('[out:json][timeout:15];rel('+r.id+');out tags bb;',18000))[0];if(it){['desc','op','sym','web','wiki','from','to','km'].forEach(k=>{if(it[k]&&!r[k])r[k]=it[k]});if(!r.net)r.net=it.net;if(routesOpen&&RL.sel===r.id&&RL.loading!==r.id){renderRoutes();scrollSel()}}}catch(e){r.thin=true}}
-async function quickGeom(id){const r=await fetchT(WMT+'details/relation/'+id+'/geometry/geojson',12000);if(!r.ok)throw new Error('wmt');const j=await r.json(),lines=[];
-  (function walk(o){if(!o||typeof o!=='object')return;if(o.type==='LineString')lines.push(o.coordinates);else if(o.type==='MultiLineString')o.coordinates.forEach(c=>lines.push(c));else{walk(o.geometry);(o.features||o.geometries||[]).forEach(walk)}})(j);
-  const out=lines.map(l=>(l||[]).map(c=>{let x=+c[0],y=+c[1];if(Math.abs(x)>180||Math.abs(y)>90){const la=(2*Math.atan(Math.exp(y/6378137))-Math.PI/2)*180/Math.PI;x=x/20037508.34*180;y=la}return[y,x]}).filter(c=>isFinite(c[0])&&isFinite(c[1])&&Math.abs(c[0])<=90&&Math.abs(c[1])<=180)).filter(l=>l.length>1);
-  if(!out.length)throw new Error('leeg');return out}
 function showPrev(lines,fitIt){gPrev.clearLayers();L.polyline(lines,{color:'#fff',weight:9,opacity:.9,interactive:false}).addTo(gPrev);L.polyline(lines,{color:'#1b6fd6',weight:5,interactive:false}).addTo(gPrev);
   if(fitIt){RL.skipMove=true;map.fitBounds(L.latLngBounds([].concat(...lines)),{paddingTopLeft:[30,80],paddingBottomRight:[70,sheetH()+20]})}}
 async function previewRoute(r){if(!r)return;RL.sel=r.id;r.err=null;
   if(r.span>900000){r.err='Te lang om in één keer te laden. Zoom in en kies een deelroute.';renderRoutes();return}
-  RL.loading=r.id;renderRoutes();scrollSel();moreInfo(r);let shown=false,full=false;
-  quickGeom(r.id).then(lines=>{if(RL.sel!==r.id||full)return;showPrev(lines,true);shown=true;if(RL.loading===r.id){RL.loading=null;if(routesOpen){renderRoutes();scrollSel()}}}).catch(()=>{});
-  try{const g=await getGeom(r);full=true;if(RL.sel!==r.id)return;r.len=g.d;r.gaps=g.gaps;if(!r.web)r.web=g.web;if(!r.wiki)r.wiki=g.wiki;showPrev([g.coords],!shown)}
+  RL.loading=r.id;renderRoutes();scrollSel();const shown=false;
+  try{const g=await getGeom(r);if(RL.sel!==r.id)return;r.len=g.d;r.gaps=g.gaps;if(!r.web)r.web=g.web;if(!r.wiki)r.wiki=g.wiki;
+    if(g.info){Object.keys(g.info).forEach(k=>{if(g.info[k]&&!r[k])r[k]=g.info[k]});r.thin=false}else moreInfo(r);showPrev([g.coords],true)}
   catch(e){if(RL.sel===r.id&&!shown)r.err=navigator.onLine===false?'Je bent offline.':'Deze route kon niet worden geladen.'}
   if(RL.loading===r.id)RL.loading=null;if(routesOpen){renderRoutes();scrollSel()}}
 function scrollSel(){const e=$('#rBody .rt.sel');if(e&&e.scrollIntoView)e.scrollIntoView({block:'nearest'})}
