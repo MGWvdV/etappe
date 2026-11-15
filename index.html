@@ -1051,7 +1051,7 @@ function buildTrack(){
   const UP=new Array(n).fill(0),DN=new Array(n).fill(0),T=new Array(n).fill(0),p=trip.pace;
   let ref=E[0];
   for(let i=1;i<n;i++){let u=0,d=0;const de=E[i]-ref;if(de>=8){u=de;ref=E[i]}else if(de<=-8){d=-de;ref=E[i]}UP[i]=UP[i-1]+u;DN[i]=DN[i-1]+d;
-    const h=(D[i]-D[i-1])/1000/p.flat,v=u/p.up+d/p.down;T[i]=T[i-1]+Math.max(h,v)+Math.min(h,v)/2}
+    const h=D[i]/1000/p.flat,v=UP[i]/p.up+DN[i]/p.down;T[i]=Math.max(T[i-1],Math.max(h,v)+Math.min(h,v)/2)}
   TR={P,D,E,UP,DN,T,hasEle,total:D[n-1],legStart,wpDist:legStart.map(i=>D[i]).concat(D[n-1])};
   trip.breaks=[...new Set(trip.breaks.map(b=>Math.round(b)))].filter(b=>b>150&&b<TR.total-150).sort((a,b)=>a-b);
   const sig=n+':'+Math.round(TR.total);
@@ -1095,7 +1095,7 @@ async function routeLeg(a,b){
   await fillEle(coords);return{coords,straight:true}}
 const OVP=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
 async function overpass(q,ms=45000){let err=new Error('overpass');
-  for(const u of OVP){try{const r=await fetchT(u,ms,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});if(!r.ok){err=new Error('status '+r.status);continue}return await r.json()}catch(e){err=e}}
+  for(const u of OVP){try{const r=await fetchT(u,ms,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});if(!r.ok){err=new Error('status '+r.status);continue}const j=await r.json();if(j&&j.remark&&/error|timed out|timeout/i.test(j.remark)){err=new Error('dienst gaf een foutmelding');continue}return j}catch(e){err=e}}
   throw err}
 
 async function eleWmt(id,coords){const r=await fetchT(WMT+'details/relation/'+id+'/way-elevation?simplify=120',40000);if(!r.ok)throw new Error('hoogte');const j=await r.json(),grid=new Map(),C=0.003;let n=0;
@@ -1109,7 +1109,7 @@ async function eleWmt(id,coords){const r=await fetchT(WMT+'details/relation/'+id
 function fetchEle(t,coords){return(t.meta&&t.meta.osm?eleWmt(t.meta.osm,coords).catch(()=>fillEle(coords)):fillEle(coords))}
 // Voor zoeken en aantikken: vraag beide servers tegelijk en neem het eerste goede antwoord.
 async function overpassFast(q,ms=30000){if(!Promise.any)return overpass(q,ms);
-  return Promise.any(OVP.map(async u=>{const r=await fetchT(u,ms,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});if(!r.ok)throw new Error('status '+r.status);return r.json()}))}
+  return Promise.any(OVP.map(async u=>{const r=await fetchT(u,ms,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});if(!r.ok)throw new Error('status '+r.status);const j=await r.json();if(j&&j.remark&&/error|timed out|timeout/i.test(j.remark))throw new Error('dienst gaf een foutmelding');return j}))}
 const firstOf=jobs=>Promise.any?Promise.any(jobs):jobs[jobs.length-1];
 const WMT='https://hiking.waymarkedtrails.org/api/v1/';
 function wmtItems(j){if(!j||!Array.isArray(j.results))throw new Error('wmt');const G={INT:'iwn',NAT:'nwn',REG:'rwn',LOC:'lwn'};
@@ -1178,14 +1178,16 @@ function poiType(t){if(t.tourism==='alpine_hut'||t.tourism==='wilderness_hut')re
   if(t.amenity==='drinking_water')return'water';if(t.natural==='spring')return'spring';if(t.amenity==='shelter')return'shelter';if(t.railway)return'train';return null}
 function nightPlace(b){if(!trip.pois)return null;let best=null;trip.pois.forEach(p=>{const dd=Math.abs(p.d-b);if(SLEEP.includes(p.t)&&p.t!=='shelter'&&dd<350&&(!best||dd<Math.abs(best.d-b)))best=p});return best}
 function nearSleep(b){if(!trip.pois)return null;let best=null;trip.pois.forEach(p=>{const dd=Math.abs(p.d-b);if((p.t==='hut'||p.t==='sleep'||p.t==='camp')&&dd>=350&&dd<5000&&(!best||dd<Math.abs(best.d-b)))best=p});return best}
+const bb=(pts,pad)=>{let a=90,b=180,c=-90,d=-180;pts.forEach(p=>{a=Math.min(a,p[0]);b=Math.min(b,p[1]);c=Math.max(c,p[0]);d=Math.max(d,p[1])});const dl=pad/111320,dn=dl/Math.cos(a*Math.PI/180);return'('+(a-dl).toFixed(4)+','+(b-dn).toFixed(4)+','+(c+dl).toFixed(4)+','+(d+dn).toFixed(4)+')'};
 async function loadPois(){if(!TR)return;
-  const step=Math.max(1,Math.ceil(TR.P.length/160)),pts=[];for(let i=0;i<TR.P.length;i+=step)pts.push(TR.P[i]);pts.push(TR.P[TR.P.length-1]);
-  const line=pts.map(p=>p[0].toFixed(4)+','+p[1].toFixed(4)).join(',');
-  const q='[out:json][timeout:60];(nwr(around:700,'+line+')["tourism"~"^(alpine_hut|wilderness_hut|camp_site|hostel|guest_house|hotel)$"];nwr(around:250,'+line+')["amenity"~"^(drinking_water|shelter)$"];node(around:250,'+line+')["natural"="spring"];node(around:500,'+line+')["railway"~"^(station|halt)$"];);out center tags 700;';
+  const n=Math.max(1,Math.min(40,Math.ceil(TR.total/6000))),per=Math.ceil(TR.P.length/n);let st='';
+  for(let k=0;k<n;k++){const part=TR.P.slice(k*per,(k+1)*per+1);if(part.length<1)continue;const b1=bb(part,750),b2=bb(part,350);
+    st+='nwr["tourism"~"^(alpine_hut|wilderness_hut|camp_site|hostel|guest_house|hotel)$"]'+b1+';nwr["amenity"~"^(drinking_water|shelter)$"]'+b2+';node["natural"="spring"]'+b2+';node["railway"~"^(station|halt)$"]'+bb(part,550)+';'}
+  const q='[out:json][timeout:50];('+st+');out center tags 2500;';
   setBusy('Hutten en water zoeken');
   let j;try{j=await overpassFast(q,70000)}catch(e){toast(navigator.onLine===false?'Je bent offline. Hutten en water zoeken kan alleen met verbinding.':'Hutten en water ophalen lukte niet. Probeer het over een minuut opnieuw.');return}
   const out=[];(j.elements||[]).forEach(e=>{const t=e.tags||{},ty=poiType(t),lat=e.lat!=null?e.lat:e.center&&e.center.lat,lng=e.lon!=null?e.lon:e.center&&e.center.lon;if(!ty||lat==null)return;
-    const nr=nearest([lat,lng]);out.push({t:ty,n:(t.name||PT[ty][0]).slice(0,60),lat:r5(lat),lng:r5(lng),ele:isFinite(parseFloat(t.ele))?Math.round(parseFloat(t.ele)):null,web:safeUrl(t.website||t['contact:website']),tel:(t.phone||t['contact:phone']||'').slice(0,30)||null,d:Math.round(TR.D[nr.i]),off:Math.round(nr.d)})});
+    const nr=nearest([lat,lng]);if(nr.d>(ty==='water'||ty==='spring'||ty==='shelter'?250:ty==='train'?500:700))return;out.push({t:ty,n:(t.name||PT[ty][0]).slice(0,60),lat:r5(lat),lng:r5(lng),ele:isFinite(parseFloat(t.ele))?Math.round(parseFloat(t.ele)):null,web:safeUrl(t.website||t['contact:website']),tel:(t.phone||t['contact:phone']||'').slice(0,30)||null,d:Math.round(TR.D[nr.i]),off:Math.round(nr.d)})});
   trip.pois=out.sort((a,b)=>a.d-b.d);trip.poiSig=TR.P.length+':'+Math.round(TR.total);trip.poiAt=Date.now();store.showPois=true;$('#ovPois').checked=true;
   const c=k=>out.filter(p=>k.includes(p.t)).length;toast('Gevonden langs de route: '+c(['hut','sleep','camp'])+' × slapen, '+c(['water','spring'])+' × water, '+c(['train'])+' × station.',5200)}
 function drawPois(){gPoi.clearLayers();if(!trip.pois||store.showPois===false||!TR)return;const z=map.getZoom();if(z<10)return;
@@ -1231,7 +1233,7 @@ map.on('zoomend',()=>{if(!sketchOn()||!SK)return;if(skBandOf(map.getZoom())!==sk
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function downloadSketch(){
   const pts=[];let acc=0;for(let i=0;i<TR.P.length;i++)if(i===0||TR.D[i]-acc>=250||i===TR.P.length-1){pts.push(TR.P[i]);acc=TR.D[i]}
-  const CH=28,chunks=[];for(let i=0;i<pts.length-1;i+=CH-1)chunks.push(pts.slice(i,i+CH));
+  const CH=20,chunks=[];for(let i=0;i<pts.length-1;i+=CH-1)chunks.push(pts.slice(i,i+CH));
   const ways=new Map(),nodes=new Map();
   const ingest=j=>{
     (j.elements||[]).forEach(e=>{const t=e.tags||{};
@@ -1241,9 +1243,9 @@ async function downloadSketch(){
         if(t.place&&t.name)nodes.set(e.id,{k:'place',p:t.place,n:t.name.slice(0,40),lat:r5(e.lat),lng:r5(e.lon)});
         else if((t.natural==='peak'||t.natural==='saddle')&&(t.name||isFinite(ele)))nodes.set(e.id,{k:t.natural,n:(t.name||'').slice(0,40),e:isFinite(ele)?Math.round(ele):null,lat:r5(e.lat),lng:r5(e.lon)})}});};
   const todo=chunks.map((_,c)=>c),tries=new Array(chunks.length).fill(0);let ok=0,dead=false;setBusy('Offline kaart ophalen 0%');
-  const worker=async u=>{let bad=0;while(todo.length&&!dead&&bad<3){const c=todo.shift(),ln=chunks[c].map(p=>p[0].toFixed(4)+','+p[1].toFixed(4)).join(',');
-      const q='[out:json][timeout:50];(way(around:1500,'+ln+')["highway"];way(around:1500,'+ln+')["waterway"~"^(river|stream|canal)$"];way(around:1500,'+ln+')["natural"~"^(water|glacier|cliff)$"];way(around:1500,'+ln+')["aerialway"];way(around:1500,'+ln+')["railway"="rail"];node(around:3000,'+ln+')["natural"~"^(peak|saddle)$"];node(around:4000,'+ln+')["place"~"^(city|town|village|hamlet)$"];);out geom qt;';
-      try{const r=await fetchT(u,60000,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});if(!r.ok)throw new Error('status '+r.status);ingest(await r.json());ok++;bad=0;setBusy('Offline kaart ophalen '+Math.round(ok/chunks.length*100)+'%');await wait(700)}
+  const worker=async u=>{let bad=0;while(todo.length&&!dead&&bad<3){const c=todo.shift(),B=bb(chunks[c],1500),B2=bb(chunks[c],3000);
+      const q='[out:json][timeout:50];(way["highway"]'+B+';way["waterway"~"^(river|stream|canal)$"]'+B+';way["natural"~"^(water|glacier|cliff)$"]'+B+';way["aerialway"]'+B+';way["railway"="rail"]'+B+';node["natural"~"^(peak|saddle)$"]'+B2+';node["place"~"^(city|town|village|hamlet)$"]'+B2+';);out geom qt;';
+      try{const r=await fetchT(u,60000,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});if(!r.ok)throw new Error('status '+r.status);const jj=await r.json();if(jj&&jj.remark&&/error|timed out|timeout/i.test(jj.remark))throw new Error('dienst gaf een foutmelding');ingest(jj);ok++;bad=0;setBusy('Offline kaart ophalen '+Math.round(ok/chunks.length*100)+'%');await wait(700)}
       catch(e){bad++;tries[c]++;if(tries[c]>=5)dead=true;else todo.push(c);await wait(5000)}}};
   await Promise.all(OVP.map(worker));if(ok<chunks.length)throw new Error('schetskaart onvolledig');
 
