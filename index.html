@@ -1461,7 +1461,8 @@ function stopCost(k,pref){if(k==='own')return 16;if(k==='village')return pref===
 // Een dag korter dan gewenst is minder erg dan een langere; boven anderhalf keer de gewenste tijd alleen als het echt niet anders kan.
 function dayCost(t,H,last){const o=t-H;return 1.5+(o<=0?(last?.25:.6)*o*o:2*o*o+(t>H*1.5?60+20*(t-H*1.5):0))}
 // Beste indeling over de hele route tegelijk (niet dag voor dag), zodat een dag niet onnodig tussen twee hutten in eindigt.
-function makePlan(H,pref){if(!TR)return null;const end=TR.T[TR.T.length-1],Tat=d=>TR.T[idxAt(d)],N=[{d:0,t:0,k:'start'}],seen=[];
+function makePlan(H,pref){if(!TR)return null;const want=pref;if(pref&&!sleepers().some(p=>p.t===pref))pref='';   // voorkeur die hier niet voorkomt telt niet mee
+  const end=TR.T[TR.T.length-1],Tat=d=>TR.T[idxAt(d)],N=[{d:0,t:0,k:'start'}],seen=[];
   const add=(d,k,p)=>{if(d<1500||d>TR.total-1500)return;N.push({d,t:Tat(d),k,p})};
   sleepers().forEach(p=>add(p.d,p.t,p));villages().forEach(p=>{if(!sleepers().some(q=>Math.abs(q.d-p.d)<400&&q.t==='sleep'))add(p.d,'village',p)});
   for(let t=.5;t<end-.4;t+=.5){let i=0;while(i<TR.T.length-1&&TR.T[i]<t)i++;add(TR.D[i],'own')}
@@ -1471,7 +1472,7 @@ function makePlan(H,pref){if(!TR)return null;const end=TR.T[TR.T.length-1],Tat=d
     for(let i=j-1;i>=0;i--){const t=N[j].t-N[i].t;if(t>H*2.2)break;if(N[j].d-N[i].d<800||cost[i]===Infinity)continue;const c=cost[i]+dayCost(t,H,last)+sc;if(c<cost[j]){cost[j]=c;from[j]=i}}}
   const br=[],kinds=[];for(let j=from[M-1];j>0;j=from[j]){br.unshift(N[j].d);kinds.unshift(N[j].k)}
   const cnt=k=>kinds.filter(x=>x===k).length;
-  return{H,br,kinds,own:cnt('own'),village:cnt('village'),sleep:kinds.length-cnt('own')-cnt('village'),pref:pref?cnt(pref):0}}
+  return{H,br,kinds,noPref:want&&!pref?want:'',own:cnt('own'),village:cnt('village'),sleep:kinds.length-cnt('own')-cnt('village'),pref:pref?cnt(pref):0}}
 function nearStops(b,k,S){const lo=S[k].a+800,hi=S[k+1].b-800,pref=prefOf(),T0=TR.T[S[k].i],dt=d=>TR.T[idxAt(d)]-T0;
   const sl=sleepers().filter(p=>p.d>lo&&p.d<hi&&Math.abs(p.d-b)>=350&&Math.abs(p.d-b)<9000&&!isStop(p.d));
   const vi=villages().filter(p=>p.d>lo&&p.d<hi&&Math.abs(p.d-b)>=600&&Math.abs(p.d-b)<9000&&!isStop(p.d));
@@ -1480,7 +1481,7 @@ function nearStops(b,k,S){const lo=S[k].a+800,hi=S[k+1].b-800,pref=prefOf(),T0=T
   return pick.map(p=>Object.assign({dt:dt(p.d)},p))}
 function planSummary(P){const n=P.br.length;if(!n)return'De hele tocht past in één dag van '+P.H+' uur.';
   const parts=[];if(P.sleep)parts.push(P.sleep+' bij een slaapplek'+(prefOf()&&P.pref<P.sleep?' ('+P.pref+' van je voorkeur)':''));if(P.village)parts.push(P.village+' in een dorp');if(P.own)parts.push(P.own+' op een punt zonder slaapplek');
-  return(n+1)+' dagen van ongeveer '+P.H+' uur. Van de '+n+(n===1?' overnachting: ':' overnachtingen: ')+parts.join(', ')+'.'+(P.village?' In een dorp zoek je zelf een plek.':'')}
+  return(P.noPref?'Langs deze route zijn geen '+PREF.find(x=>x[0]===P.noPref)[1].toLowerCase()+' bekend; de indeling gebruikt andere slaapplekken. ':'')+(n+1)+' dagen van ongeveer '+P.H+' uur. Van de '+n+(n===1?' overnachting: ':' overnachtingen: ')+parts.join(', ')+'.'+(P.village?' In een dorp zoek je zelf een plek.':'')}
 function planByHours(H){const P=makePlan(H,prefOf());if(!P)return;FIND=null;trip.breaks=P.br;trip.planH=H;refresh();toast(planSummary(P),6500)}
 // Andere dagduur die wél overal bij een slaapplek of dorp uitkomt.
 function betterPlans(cur){const pref=prefOf(),out=[];for(let H=4;H<=9;H++){if(H===cur)continue;const P=makePlan(H,pref);if(P&&P.br.length&&!P.own&&!out.some(o=>o.br.join()===P.br.join()))out.push(P)}
@@ -1536,7 +1537,7 @@ function renderEtappes(){
     h+='</div>'}
   h+='<div class="card"><b>Hoe lang wil je per dag lopen?</b><div class="chips" style="margin:10px 0 6px">'+[4,5,6,7,8].map(x=>'<button class="chip '+(trip.planH===x&&n>1?'on':'')+'" data-h="'+x+'">'+x+' uur</button>').join('')+'</div>';
   h+='<b style="display:block;margin-top:14px">Waar slaap je het liefst?</b><div class="chips" style="margin:10px 0 6px">'+PREF.map(([k,l])=>'<button class="chip '+(pref===k?'on':'')+'" data-pref="'+k+'">'+l+'</button>').join('')+'</div>';
-  h+='<p class="note" style="margin-top:2px">'+(bgBusy&&(!trip.pois||trip.poiV!==2)?'<span class="rload" style="margin:0"><i></i><span>Slaapplekken langs de route zoeken. Dat kan een minuut duren.</span></span>':C.length||V.length?'Elke dag eindigt bij een van de '+C.length+' slaapplekken'+(V.length?' of '+V.length+(V.length===1?' dorp':' dorpen'):'')+' langs je route'+(pref?', zo veel mogelijk bij '+PREF.find(x=>x[0]===pref)[1].toLowerCase():'')+'. Daarna pas je per dag aan.':trip.pois?'Langs deze route zijn geen slaapplekken bekend. De dagen eindigen dan op een punt onderweg.':'Slaapplekken zijn nog niet opgezocht.')+'</p>';
+  h+='<p class="note" style="margin-top:2px">'+(bgBusy&&(!trip.pois||trip.poiV!==2)?'<span class="rload" style="margin:0"><i></i><span>Slaapplekken langs de route zoeken. Dat kan een minuut duren.</span></span>':C.length||V.length?'Elke dag eindigt bij een van de '+C.length+' slaapplekken'+(V.length?' of '+V.length+(V.length===1?' dorp':' dorpen'):'')+' langs je route'+(pref?(C.some(p=>p.t===pref)?', zo veel mogelijk bij '+PREF.find(x=>x[0]===pref)[1].toLowerCase():'. Er zijn hier geen '+PREF.find(x=>x[0]===pref)[1].toLowerCase()+' bekend'):'')+'. Daarna pas je per dag aan.':trip.pois?'Langs deze route zijn geen slaapplekken bekend. De dagen eindigen dan op een punt onderweg.':'Slaapplekken zijn nog niet opgezocht.')+'</p>';
   if((!C.length||!trip.poiAt)&&!bgBusy)h+='<div class="row" style="margin-top:10px"><button class="btn grow" id="dPois">'+(trip.pois?'Opnieuw zoeken naar hutten en water':'Zoek hutten, water en stations')+'</button></div>';
   h+='<div class="row" style="margin-top:12px"><label class="field">Startdatum<input type="date" id="dStart" value="'+esc(trip.start||'')+'"></label></div>';
   h+='<details id="dFix"'+(keepOpen.dFix?' open':'')+' style="margin-top:12px"><summary>Liever een vast aantal dagen</summary><div class="row between" style="margin-top:10px"><div class="stepper"><button id="dMin" aria-label="Dag minder">−</button><b class="num" id="dN">'+wantDays+'</b><button id="dPlus" aria-label="Dag meer">+</button></div><button class="btn grow" id="dGo">Verdeel over '+wantDays+(wantDays===1?' dag':' dagen')+'</button></div><p class="note">Dit verdeelt op gelijke looptijd, zonder op slaapplekken te letten.</p></details></div>';
