@@ -839,6 +839,10 @@ button{cursor:pointer;touch-action:manipulation}
 .stop b{display:block}.stop small{display:block;color:var(--muted);font-size:13px}
 .stop .tent{width:30px;height:30px;border-radius:9px;background:var(--ink);color:var(--paper);display:grid;place-items:center;flex:none}
 .stop .tent svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.warnc{border:1.5px solid #e2b04a;background:#fff8e8}.warnc b{display:block}.warnc .note{margin:6px 0 0}
+.sugg{display:grid;gap:8px;margin-top:8px}.sugg>div{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.sugg small{color:var(--muted)}
+.stop.none .tent{background:#b7791f}
+.poi.village{border-color:#6b6257;color:#6b6257}
 .find{margin-top:10px;padding:10px;border-radius:12px;background:var(--paper)}
 .find input{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:var(--card);color:var(--ink);-webkit-appearance:none;appearance:none}
 .find .rload{margin:10px 0 2px}.find .note{margin:8px 0 0}
@@ -1240,26 +1244,27 @@ function draw(){
 /* ---------- hutten, water en stations langs de route ---------- */
 const PT={hut:['Berghut','M4 11l8-7 8 7v9H4z M10 20v-5h4v5'],sleep:['Hotel of pension','M3 18v-9 M3 14h18v4 M21 14v-1a3 3 0 0 0-3-3h-7v4'],camp:['Camping','M3 20L12 4l9 16H3z M12 20v-6'],
   water:['Drinkwater','M12 3s6 6.500 6 11a6 6 0 0 1-12 0c0-4.500 6-11 6-11z'],spring:['Bron, drinkbaarheid onbekend','M12 3s6 6.500 6 11a6 6 0 0 1-12 0c0-4.500 6-11 6-11z'],
-  shelter:['Schuilhut','M3 12l9-7 9 7 M6 11v8 M18 11v8'],train:['Station','M8 4h8a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z M5 11h14 M8 21l2-3 M16 21l-2-3']};
+  village:['Dorp','M3 20h18 M5 20v-7l4-3 4 3v7 M13 20v-9l3-2 3 2v9 M8 20v-3h2v3'],shelter:['Schuilhut','M3 12l9-7 9 7 M6 11v8 M18 11v8'],train:['Station','M8 4h8a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z M5 11h14 M8 21l2-3 M16 21l-2-3']};
 const SLEEP=['hut','sleep','camp','shelter'];
 function poiType(t){if(t.tourism==='alpine_hut'||t.tourism==='wilderness_hut')return'hut';if(/^(hostel|guest_house|hotel)$/.test(t.tourism||''))return'sleep';if(t.tourism==='camp_site')return'camp';
-  if(t.amenity==='drinking_water')return'water';if(t.natural==='spring')return'spring';if(t.amenity==='shelter')return'shelter';if(t.railway)return'train';return null}
+  if(t.amenity==='drinking_water')return'water';if(t.natural==='spring')return'spring';if(t.amenity==='shelter')return'shelter';if(t.railway)return'train';if(/^(town|village|hamlet)$/.test(t.place||'')&&t.name)return'village';return null}
 function nightPlace(b){if(!trip.pois)return null;let best=null;trip.pois.forEach(p=>{const dd=Math.abs(p.d-b);if(SLEEP.includes(p.t)&&p.t!=='shelter'&&dd<350&&(!best||dd<Math.abs(best.d-b)))best=p});return best}
 function nearSleep(b){if(!trip.pois)return null;let best=null;trip.pois.forEach(p=>{const dd=Math.abs(p.d-b);if((p.t==='hut'||p.t==='sleep'||p.t==='camp')&&dd>=350&&dd<5000&&(!best||dd<Math.abs(best.d-b)))best=p});return best}
 const bb=(pts,pad)=>{let a=90,b=180,c=-90,d=-180;pts.forEach(p=>{a=Math.min(a,p[0]);b=Math.min(b,p[1]);c=Math.max(c,p[0]);d=Math.max(d,p[1])});const dl=pad/111320,dn=dl/Math.cos(a*Math.PI/180);return'('+(a-dl).toFixed(4)+','+(b-dn).toFixed(4)+','+(c+dl).toFixed(4)+','+(d+dn).toFixed(4)+')'};
 async function loadPois(){if(!TR)return;
   const n=Math.max(1,Math.min(40,Math.ceil(TR.total/6000))),per=Math.ceil(TR.P.length/n);let st='';
   for(let k=0;k<n;k++){const part=TR.P.slice(k*per,(k+1)*per+1);if(part.length<1)continue;const b1=bb(part,750),b2=bb(part,350);
-    st+='nwr["tourism"~"^(alpine_hut|wilderness_hut|camp_site|hostel|guest_house|hotel)$"]'+b1+';nwr["amenity"~"^(drinking_water|shelter)$"]'+b2+';node["natural"="spring"]'+b2+';node["railway"~"^(station|halt)$"]'+bb(part,550)+';'}
+    st+='nwr["tourism"~"^(alpine_hut|wilderness_hut|camp_site|hostel|guest_house|hotel)$"]'+b1+';node["place"~"^(town|village|hamlet)$"]'+bb(part,1000)+';nwr["amenity"~"^(drinking_water|shelter)$"]'+b2+';node["natural"="spring"]'+b2+';node["railway"~"^(station|halt)$"]'+bb(part,550)+';'}
   const q='[out:json][timeout:50];('+st+');out center tags 2500;';
   setBusy('Hutten en water zoeken');
   let j;try{j=await overpassFast(q,70000)}catch(e){toast(navigator.onLine===false?'Je bent offline. Hutten en water zoeken kan alleen met verbinding.':'Hutten en water ophalen lukte niet. Probeer het over een minuut opnieuw.');return}
   const out=[];(j.elements||[]).forEach(e=>{const t=e.tags||{},ty=poiType(t),lat=e.lat!=null?e.lat:e.center&&e.center.lat,lng=e.lon!=null?e.lon:e.center&&e.center.lon;if(!ty||lat==null)return;
-    const nr=nearest([lat,lng]);if(nr.d>(ty==='water'||ty==='spring'||ty==='shelter'?250:ty==='train'?500:700))return;out.push({t:ty,n:(t.name||PT[ty][0]).slice(0,60),lat:r5(lat),lng:r5(lng),ele:isFinite(parseFloat(t.ele))?Math.round(parseFloat(t.ele)):null,web:safeUrl(t.website||t['contact:website']),tel:(t.phone||t['contact:phone']||'').slice(0,30)||null,d:Math.round(TR.D[nr.i]),off:Math.round(nr.d)})});
-  trip.pois=out.sort((a,b)=>a.d-b.d);trip.poiSig=TR.P.length+':'+Math.round(TR.total);trip.poiAt=Date.now();store.showPois=true;$('#ovPois').checked=true;
-  const c=k=>out.filter(p=>k.includes(p.t)).length;toast('Gevonden langs de route: '+c(['hut','sleep','camp'])+' × slapen, '+c(['water','spring'])+' × water, '+c(['train'])+' × station.',5200)}
+    const nr=nearest([lat,lng]);if(nr.d>(ty==='water'||ty==='spring'||ty==='shelter'?250:ty==='train'?500:ty==='village'?1000:700))return;out.push({t:ty,pl:ty==='village'?t.place:undefined,n:(t.name||PT[ty][0]).slice(0,60),lat:r5(lat),lng:r5(lng),ele:isFinite(parseFloat(t.ele))?Math.round(parseFloat(t.ele)):null,web:safeUrl(t.website||t['contact:website']),tel:(t.phone||t['contact:phone']||'').slice(0,30)||null,d:Math.round(TR.D[nr.i]),off:Math.round(nr.d)})});
+  (trip.pois||[]).filter(q=>q.u&&!out.some(o=>hav([o.lat,o.lng],[q.lat,q.lng])<60)).forEach(q=>{const nr=nearest([q.lat,q.lng]);q.d=Math.round(TR.D[nr.i]);q.off=Math.round(nr.d);out.push(q)});   // zelf gekozen plekken blijven
+  trip.pois=out.sort((a,b)=>a.d-b.d);trip.poiSig=TR.P.length+':'+Math.round(TR.total);trip.poiAt=Date.now();trip.poiV=2;store.showPois=true;$('#ovPois').checked=true;
+  const c=k=>out.filter(p=>k.includes(p.t)).length;toast('Gevonden langs de route: '+c(['hut','sleep','camp'])+' × slapen, '+c(['village'])+' × dorp, '+c(['water','spring'])+' × water, '+c(['train'])+' × station.',5200)}
 function drawPois(){gPoi.clearLayers();if(!trip.pois||store.showPois===false||!TR)return;const z=map.getZoom();if(z<10)return;
-  trip.pois.forEach(p=>{if((p.t==='water'||p.t==='spring'||p.t==='shelter')&&z<13)return;
+  trip.pois.forEach(p=>{if(p.t==='village'||(p.t==='water'||p.t==='spring'||p.t==='shelter')&&z<13)return;
     const m=L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html:'<div class="poi '+p.t+'"><svg viewBox="0 0 24 24"><path d="'+PT[p.t][1]+'"/></svg></div>',iconSize:[24,24],iconAnchor:[12,12]}),zIndexOffset:100}).addTo(gPoi);
     m.on('click',()=>{closePops();const box=document.createElement('div');
       box.innerHTML='<b>'+esc(p.n)+'</b><br>'+PT[p.t][0]+(p.ele?' · '+fM(p.ele)+' m':'')+'<br>km '+fKm(p.d)+(p.off>60?' · '+fM(p.off)+' m van de route':'')+(p.tel?'<br>'+esc(p.tel):'')+(p.web?'<br><a class="link" href="'+esc(p.web)+'" target="_blank" rel="noopener">Website</a>':'');
@@ -1444,15 +1449,42 @@ let wantDays=0;
 function autoSplit(n){if(!TR)return;const tot=TR.T[TR.T.length-1],br=[];for(let k=1;k<n;k++){const target=tot*k/n;let i=0;while(i<TR.T.length-1&&TR.T[i]<target)i++;br.push(TR.D[i])}trip.breaks=br;refresh()}
 function sleepers(){const out=[];(trip.pois||[]).forEach(p=>{if(p.t!=='hut'&&p.t!=='sleep'&&p.t!=='camp')return;const l=out[out.length-1];if(l&&p.d-l.d<250&&(l.n===p.n||l.t==='hut'))return;out.push(p)});return out}
 const isStop=d=>trip.breaks.some(b=>Math.abs(b-d)<120);
-// Dagen van hooguit H uur, steeds tot de verste slaapplek die nog binnen die tijd ligt.
-function planByHours(H){if(!TR)return;const C=sleepers().filter(p=>p.d>1500&&p.d<TR.total-1500),Tat=d=>TR.T[idxAt(d)],end=TR.T[TR.T.length-1],br=[];let pos=0,guard=0,own=0;
-  while(end-Tat(pos)>H+0.6&&guard++<80){const ahead=C.filter(p=>p.d>pos+800);let pick=null;
-    for(const p of ahead){if(Tat(p.d)-Tat(pos)<=H)pick=p;else break}
-    if(!pick&&ahead[0]&&Tat(ahead[0].d)-Tat(pos)<=H*1.6)pick=ahead[0];
-    if(pick){br.push(pick.d);pos=pick.d;continue}
-    const rest=end-Tat(pos),target=Tat(pos)+rest/Math.ceil(rest/H);let i=idxAt(pos);while(i<TR.T.length-1&&TR.T[i]<target)i++;if(TR.total-TR.D[i]<1500)break;br.push(TR.D[i]);pos=TR.D[i];own++}
-  trip.breaks=br;trip.planH=H;refresh();
-  toast(br.length?(br.length+1)+' dagen van ongeveer '+H+' uur'+(C.length?(own?'. Op '+own+(own===1?' plek':' plekken')+' is geen slaapplek bekend; zoek daar zelf iets.':', steeds tot een slaapplek.'):'. Zoek hutten om de dagen bij een slaapplek te laten eindigen.'):'De hele tocht past in één dag van '+H+' uur.',5200)}
+// Voorkeur voor het soort slaapplek: '' (geen), 'hut', 'sleep' (hotel of pension) of 'camp'.
+const PREF=[['','Geen voorkeur'],['hut','Hutten'],['sleep','Hotels en pensions'],['camp','Campings']];
+const prefOf=()=>store.pref||'';
+function villages(){return(trip.pois||[]).filter(p=>p.t==='village')}
+function nightVillage(b){let best=null;villages().forEach(p=>{const dd=Math.abs(p.d-b);if(dd<600&&(!best||dd<Math.abs(best.d-b)))best=p});return best}
+// Wat er bij een overnachting ligt: een bekende slaapplek, een dorp om zelf te zoeken, of niets.
+function stopKind(b){const np=nightPlace(b);if(np)return{k:np.t,p:np};const v=nightVillage(b);return v?{k:'village',p:v}:{k:'own'}}
+// Kosten van een eindpunt: een slaapplek van je voorkeur kost niets, een ander soort wat, een dorp meer, een punt zonder iets het meest.
+function stopCost(k,pref){if(k==='own')return 16;if(k==='village')return pref==='sleep'?4:6;return pref&&k!==pref?4:0}
+// Een dag korter dan gewenst is minder erg dan een langere; boven anderhalf keer de gewenste tijd alleen als het echt niet anders kan.
+function dayCost(t,H,last){const o=t-H;return 1.5+(o<=0?(last?.25:.6)*o*o:2*o*o+(t>H*1.5?60+20*(t-H*1.5):0))}
+// Beste indeling over de hele route tegelijk (niet dag voor dag), zodat een dag niet onnodig tussen twee hutten in eindigt.
+function makePlan(H,pref){if(!TR)return null;const end=TR.T[TR.T.length-1],Tat=d=>TR.T[idxAt(d)],N=[{d:0,t:0,k:'start'}],seen=[];
+  const add=(d,k,p)=>{if(d<1500||d>TR.total-1500)return;N.push({d,t:Tat(d),k,p})};
+  sleepers().forEach(p=>add(p.d,p.t,p));villages().forEach(p=>{if(!sleepers().some(q=>Math.abs(q.d-p.d)<400&&q.t==='sleep'))add(p.d,'village',p)});
+  for(let t=.5;t<end-.4;t+=.5){let i=0;while(i<TR.T.length-1&&TR.T[i]<t)i++;add(TR.D[i],'own')}
+  N.sort((a,b)=>a.d-b.d);N.push({d:TR.total,t:end,k:'fin'});
+  const M=N.length,cost=new Float64Array(M).fill(Infinity),from=new Int32Array(M).fill(-1);cost[0]=0;
+  for(let j=1;j<M;j++){const last=j===M-1,sc=last?0:stopCost(N[j].k,pref);
+    for(let i=j-1;i>=0;i--){const t=N[j].t-N[i].t;if(t>H*2.2)break;if(N[j].d-N[i].d<800||cost[i]===Infinity)continue;const c=cost[i]+dayCost(t,H,last)+sc;if(c<cost[j]){cost[j]=c;from[j]=i}}}
+  const br=[],kinds=[];for(let j=from[M-1];j>0;j=from[j]){br.unshift(N[j].d);kinds.unshift(N[j].k)}
+  const cnt=k=>kinds.filter(x=>x===k).length;
+  return{H,br,kinds,own:cnt('own'),village:cnt('village'),sleep:kinds.length-cnt('own')-cnt('village'),pref:pref?cnt(pref):0}}
+function nearStops(b,k,S){const lo=S[k].a+800,hi=S[k+1].b-800,pref=prefOf(),T0=TR.T[S[k].i],dt=d=>TR.T[idxAt(d)]-T0;
+  const sl=sleepers().filter(p=>p.d>lo&&p.d<hi&&Math.abs(p.d-b)>=350&&Math.abs(p.d-b)<9000&&!isStop(p.d));
+  const vi=villages().filter(p=>p.d>lo&&p.d<hi&&Math.abs(p.d-b)>=600&&Math.abs(p.d-b)<9000&&!isStop(p.d));
+  const rank=p=>Math.abs(p.d-b)/1000+(pref&&p.t!==pref?(p.t==='village'?3:2):p.t==='village'?3:0);
+  const pick=[...sl].sort((x,y)=>rank(x)-rank(y)).slice(0,2);if(pick.length<2)pick.push(...[...vi].sort((x,y)=>rank(x)-rank(y)).slice(0,2-pick.length));
+  return pick.map(p=>Object.assign({dt:dt(p.d)},p))}
+function planSummary(P){const n=P.br.length;if(!n)return'De hele tocht past in één dag van '+P.H+' uur.';
+  const parts=[];if(P.sleep)parts.push(P.sleep+' bij een slaapplek'+(prefOf()&&P.pref<P.sleep?' ('+P.pref+' van je voorkeur)':''));if(P.village)parts.push(P.village+' in een dorp');if(P.own)parts.push(P.own+' op een punt zonder slaapplek');
+  return(n+1)+' dagen van ongeveer '+P.H+' uur. Van de '+n+(n===1?' overnachting: ':' overnachtingen: ')+parts.join(', ')+'.'+(P.village?' In een dorp zoek je zelf een plek.':'')}
+function planByHours(H){const P=makePlan(H,prefOf());if(!P)return;FIND=null;trip.breaks=P.br;trip.planH=H;refresh();toast(planSummary(P),6500)}
+// Andere dagduur die wél overal bij een slaapplek of dorp uitkomt.
+function betterPlans(cur){const pref=prefOf(),out=[];for(let H=4;H<=9;H++){if(H===cur)continue;const P=makePlan(H,pref);if(P&&P.br.length&&!P.own&&!out.some(o=>o.br.join()===P.br.join()))out.push(P)}
+  return out.sort((a,b)=>(a.village-b.village)||Math.abs(a.H-cur)-Math.abs(b.H-cur)).slice(0,2)}
 function spark(i,j){if(!TR.hasEle||j-i<2)return'';const W=300,H=30,st=Math.max(1,Math.floor((j-i)/70));let lo=Infinity,hi=-Infinity;for(let k=i;k<=j;k++){if(TR.E[k]<lo)lo=TR.E[k];if(TR.E[k]>hi)hi=TR.E[k]}if(hi-lo<30)hi=lo+30;
   let d='';for(let k=i;k<=j;k+=st)d+=(d?'L':'M')+((TR.D[k]-TR.D[i])/(TR.D[j]-TR.D[i])*W).toFixed(1)+' '+(H-2-(TR.E[k]-lo)/(hi-lo)*(H-4)).toFixed(1);
   return'<svg class="spark" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" aria-hidden="true"><path d="'+d+'L'+W+' '+H+'L0 '+H+'Z" fill="var(--pine)" opacity=".14"/><path d="'+d+'" fill="none" stroke="var(--pine)" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>'}
@@ -1477,7 +1509,7 @@ async function findRun(){const F=FIND;if(!F||!TR)return;const a=TR.P[idxAt(F.d)]
   catch(e){if(FIND!==F)return;F.busy=false;F.err=navigator.onLine===false?'Je bent offline. Zoeken kan alleen met verbinding.':'Zoeken lukte nu niet. Probeer het zo opnieuw, of zoek op naam.'}
   if(curTab==='Etappes')renderEtappes()}
 function findPick(r){const F=FIND;if(!F||!TR)return;FIND=null;trip.planH=null;trip.breaks=trip.breaks.filter(b=>Math.abs(b-F.d)>=50);
-  const keep=()=>{trip.pois=trip.pois||[];if(!trip.pois.some(p=>hav([p.lat,p.lng],[r.lat,r.lng])<60)){const nr=nearest([r.lat,r.lng]);trip.pois.push({t:r.t,n:r.n,lat:r.lat,lng:r.lng,ele:r.ele||null,web:r.web||null,tel:r.tel||null,d:Math.round(TR.D[nr.i]),off:Math.round(nr.d)});trip.pois.sort((x,y)=>x.d-y.d)}};
+  const keep=()=>{trip.pois=trip.pois||[];if(!trip.pois.some(p=>hav([p.lat,p.lng],[r.lat,r.lng])<60)){const nr=nearest([r.lat,r.lng]);trip.pois.push({u:1,t:r.t,n:r.n,lat:r.lat,lng:r.lng,ele:r.ele||null,web:r.web||null,tel:r.tel||null,d:Math.round(TR.D[nr.i]),off:Math.round(nr.d)});trip.pois.sort((x,y)=>x.d-y.d)}};
   if(r.off<=350){const nr=nearest([r.lat,r.lng]);trip.breaks.push(TR.D[nr.i]);keep();refresh();toast('Je slaapt bij '+r.n+'.',3000);return}
   run(async()=>{await viaPlace({n:r.n,lat:r.lat,lng:r.lng},true);buildTrack();keep();trip.poiSig=''})}
 function findHtml(){const F=FIND;let h='<div class="find"><form class="row" id="fForm"><input type="search" id="fQ" placeholder="Naam van hut, hotel of dorp" value="'+esc(F.q||'')+'" enterkeyhint="search" autocomplete="off"><button class="btn small primary" type="submit">Zoek</button></form>';
@@ -1489,11 +1521,22 @@ function findHtml(){const F=FIND;let h='<div class="find"><form class="row" id="
 function renderEtappes(){
   const el=$('#pEtappes'),keepOpen={};el.querySelectorAll('details[id]').forEach(d=>keepOpen[d.id]=d.open);const sc=el.scrollTop;
   if(!TR){el.innerHTML='<h1>Etappes</h1><p class="sub">Kies eerst een bekende route of teken er zelf een. Daarna bepaal je hier waar je slaapt.</p>';return}
-  if(!trip.pois&&!trip.poiTried&&!bgBusy&&navigator.onLine!==false){trip.poiTried=true;setTimeout(()=>bg(loadPois),50)}   // slaapplekken zoeken hoort bij dit scherm
+  if((!trip.pois||trip.poiV!==2)&&trip.poiTried!==2&&!bgBusy&&navigator.onLine!==false){trip.poiTried=2;setTimeout(()=>bg(loadPois),50)}   // slaapplekken zoeken hoort bij dit scherm
   const S=stages(),n=S.length,C=sleepers(),tot=TR.T[TR.T.length-1];if(!wantDays||wantDays<1)wantDays=n>1?n:Math.max(1,Math.ceil(tot/6.5));
   let h='<h1>Etappes</h1><p class="sub">'+esc(trip.name)+' · '+fKm(TR.total)+' km · '+fT(tot)+' uur lopen · '+n+(n===1?' dag':' dagen')+'</p>';
+  const V=villages(),pref=prefOf();
+  // Dagen die nergens eindigen: zeg welke, en stel een indeling voor die wel uitkomt.
+  const bad=S.slice(0,-1).map((s,k)=>stopKind(s.b).k==='own'?k+1:0).filter(Boolean);
+  if(bad.length&&trip.pois&&!bgBusy){const avg=Math.min(9,Math.max(4,Math.round(trip.planH||tot/n))),re=makePlan(avg,pref),alt=betterPlans(avg);
+    h+='<div class="card warnc"><b>'+(bad.length===1?'Dag '+bad[0]+' eindigt':'Dag '+bad.slice(0,-1).join(', ')+' en '+bad[bad.length-1]+' eindigen')+' niet bij een slaapplek of dorp</b>';
+    const opts=[];
+    if(re&&re.own<bad.length&&JSON.stringify(re.br)!==JSON.stringify(trip.breaks))opts.push('<button class="btn small primary" data-plan="'+avg+'">Herverdeel op '+avg+' uur per dag</button><small>'+(re.own?'nog '+re.own+' zonder plek':'elke dag een slaapplek'+(re.village?' of dorp':''))+'</small>');
+    alt.forEach(P=>opts.push('<button class="btn small'+(opts.length?'':' primary')+'" data-plan="'+P.H+'">'+P.H+' uur per dag</button><small>'+(P.br.length+1)+' dagen, '+(P.village?P.sleep+' slaapplekken en '+P.village+(P.village===1?' dorp':' dorpen'):'elke nacht een slaapplek')+'</small>'));
+    h+=opts.length?'<p class="note">Zo komt elke dag wel uit:</p><div class="sugg">'+opts.map(o=>'<div>'+o+'</div>').join('')+'</div>':'<p class="note">Met een andere dagduur lukt het ook niet: langs dat stuk is niets bekend. Kijk bij die dag welke plekken in de buurt liggen, of zoek er een op naam.</p>';
+    h+='</div>'}
   h+='<div class="card"><b>Hoe lang wil je per dag lopen?</b><div class="chips" style="margin:10px 0 6px">'+[4,5,6,7,8].map(x=>'<button class="chip '+(trip.planH===x&&n>1?'on':'')+'" data-h="'+x+'">'+x+' uur</button>').join('')+'</div>';
-  h+='<p class="note" style="margin-top:2px">'+(bgBusy&&!trip.pois?'<span class="rload" style="margin:0"><i></i><span>Slaapplekken langs de route zoeken. Dat kan een minuut duren.</span></span>':C.length?'De app laat elke dag eindigen bij een van de '+C.length+' slaapplekken langs je route. Daarna pas je per dag aan.':trip.pois?'Langs deze route zijn geen slaapplekken bekend. De dagen eindigen dan op een punt onderweg.':'Slaapplekken zijn nog niet opgezocht.')+'</p>';
+  h+='<b style="display:block;margin-top:14px">Waar slaap je het liefst?</b><div class="chips" style="margin:10px 0 6px">'+PREF.map(([k,l])=>'<button class="chip '+(pref===k?'on':'')+'" data-pref="'+k+'">'+l+'</button>').join('')+'</div>';
+  h+='<p class="note" style="margin-top:2px">'+(bgBusy&&(!trip.pois||trip.poiV!==2)?'<span class="rload" style="margin:0"><i></i><span>Slaapplekken langs de route zoeken. Dat kan een minuut duren.</span></span>':C.length||V.length?'Elke dag eindigt bij een van de '+C.length+' slaapplekken'+(V.length?' of '+V.length+(V.length===1?' dorp':' dorpen'):'')+' langs je route'+(pref?', zo veel mogelijk bij '+PREF.find(x=>x[0]===pref)[1].toLowerCase():'')+'. Daarna pas je per dag aan.':trip.pois?'Langs deze route zijn geen slaapplekken bekend. De dagen eindigen dan op een punt onderweg.':'Slaapplekken zijn nog niet opgezocht.')+'</p>';
   if((!C.length||!trip.poiAt)&&!bgBusy)h+='<div class="row" style="margin-top:10px"><button class="btn grow" id="dPois">'+(trip.pois?'Opnieuw zoeken naar hutten en water':'Zoek hutten, water en stations')+'</button></div>';
   h+='<div class="row" style="margin-top:12px"><label class="field">Startdatum<input type="date" id="dStart" value="'+esc(trip.start||'')+'"></label></div>';
   h+='<details id="dFix"'+(keepOpen.dFix?' open':'')+' style="margin-top:12px"><summary>Liever een vast aantal dagen</summary><div class="row between" style="margin-top:10px"><div class="stepper"><button id="dMin" aria-label="Dag minder">−</button><b class="num" id="dN">'+wantDays+'</b><button id="dPlus" aria-label="Dag meer">+</button></div><button class="btn grow" id="dGo">Verdeel over '+wantDays+(wantDays===1?' dag':' dagen')+'</button></div><p class="note">Dit verdeelt op gelijke looptijd, zonder op slaapplekken te letten.</p></details></div>';
@@ -1507,20 +1550,24 @@ function renderEtappes(){
     if(mid.length)h+='<details class="mids" id="dm'+k+'"'+(keepOpen['dm'+k]||s.t>8?' open':'')+'><summary>'+(s.t>8?'Te lang? ':'')+mid.length+(mid.length===1?' slaapplek':' slaapplekken')+' onderweg</summary>'+mid.map(p=>{const j=idxAt(p.d);
         return'<div class="cand"><span class="poi '+p.t+'"><svg viewBox="0 0 24 24"><path d="'+PT[p.t][1]+'"/></svg></span><span class="grow"><b>'+esc(p.n)+'</b><small>na '+fKm(p.d-s.a)+' km · '+fT(TR.T[j]-TR.T[s.i])+' uur'+(p.ele?' · '+fM(p.ele)+' m':'')+'</small></span><button class="btn small" data-show="'+p.lat+','+p.lng+'" aria-label="Toon '+esc(p.n)+' op de kaart">Kaart</button><button class="btn small primary" data-stop="'+p.d+'">Slaap hier</button></div>'}).join('')+'</details>';
     if(lastDay)h+='<div class="stop fin"><span class="tent" style="background:var(--pine)"><svg viewBox="0 0 24 24"><path d="M5 21V4h11l-2 4 2 4H5"/></svg></span><span class="grow"><b>Finish</b><small>km '+fKm(TR.total)+'</small></span></div>';
-    else{const np=nightPlace(s.b),ns=np?null:nearSleep(s.b);
-      h+='<div class="stop"><span class="tent">'+TENT+'</span><span class="grow">'+(np?'<b>Slapen: '+esc(np.n)+'</b><small>'+PT[np.t][0]+' · km '+fKm(s.b)+(np.ele?' · '+fM(np.ele)+' m':'')+(np.off>80?' · '+fM(np.off)+' m van de route':'')+'</small>':'<b>Slapen op km '+fKm(s.b)+'</b><small>Hier is geen slaapplek bekend</small>')+'</span></div><div class="stopbtns">';
+    else{const np=nightPlace(s.b),nv=np?null:nightVillage(s.b),alts=np?[]:nearStops(s.b,k,S);
+      h+='<div class="stop'+(np||nv?'':' none')+'"><span class="tent">'+TENT+'</span><span class="grow">'+(np?'<b>Slapen: '+esc(np.n)+'</b><small>'+PT[np.t][0]+(pref&&np.t!==pref?' (niet je voorkeur)':'')+' · km '+fKm(s.b)+(np.ele?' · '+fM(np.ele)+' m':'')+(np.off>80?' · '+fM(np.off)+' m van de route':'')+'</small>'
+        :nv?'<b>Slapen in '+esc(nv.n)+'</b><small>'+(nv.pl==='hamlet'?'Gehucht':'Dorp')+' · km '+fKm(s.b)+' · geen slaapplek bekend, zoek er zelf een</small>'
+        :'<b>Slapen op km '+fKm(s.b)+'</b><small>Hier is geen slaapplek of dorp bekend</small>')+'</span></div><div class="stopbtns">';
+      if(nv)h+='<button class="btn small" data-show="'+nv.lat+','+nv.lng+'">Kaart</button>';
       if(np)h+='<button class="btn small" data-show="'+np.lat+','+np.lng+'">Kaart</button>'+(np.web?'<a class="btn small" href="'+esc(np.web)+'" target="_blank" rel="noopener">Website</a>':'')+(np.tel?'<a class="btn small" href="tel:'+esc(np.tel.replace(/[^+\d]/g,''))+'">Bel</a>':'');
-      else h+='<button class="btn small" data-mv="'+k+'" data-d="-1000">−1 km</button><button class="btn small" data-mv="'+k+'" data-d="1000">+1 km</button>';
+      else if(!nv)h+='<button class="btn small" data-mv="'+k+'" data-d="-1000">−1 km</button><button class="btn small" data-mv="'+k+'" data-d="1000">+1 km</button>';
       const fo=FIND&&Math.abs(FIND.d-s.b)<50;
       if(!fo)h+='<button class="btn small'+(np?'':' primary')+'" data-find="'+s.b+'">'+(np?'Andere slaapplek':'Zoek slaapplek')+'</button>';
       h+='<button class="btn small danger" data-rm="'+k+'">Niet hier slapen</button></div>';if(fo)h+=findHtml();
-      if(ns)h+='<div class="cand" style="margin-top:8px"><span class="poi '+ns.t+'"><svg viewBox="0 0 24 24"><path d="'+PT[ns.t][1]+'"/></svg></span><span class="grow"><b>'+esc(ns.n)+'</b><small>'+fKm(Math.abs(ns.d-s.b))+' km '+(ns.d>s.b?'verder':'terug')+'</small></span><button class="btn small primary" data-snap="'+k+'" data-to="'+ns.d+'">Slaap daar</button></div>'}
+      if(alts.length)h+='<p class="note" style="margin:10px 0 2px">'+(nv?'Liever een bekende slaapplek?':'In de buurt:')+'</p>'+alts.map(a=>'<div class="cand"><span class="poi '+a.t+'"><svg viewBox="0 0 24 24"><path d="'+PT[a.t][1]+'"/></svg></span><span class="grow"><b>'+esc(a.n)+'</b><small>'+(a.t==='village'?(a.pl==='hamlet'?'Gehucht, zelf zoeken':'Dorp, zelf zoeken'):PT[a.t][0]+(pref&&a.t===pref?', je voorkeur':''))+' · '+fKm(Math.abs(a.d-s.b))+' km '+(a.d>s.b?'verder':'eerder')+' · dag wordt '+fT(a.dt)+' uur</small></span><button class="btn small primary" data-snap="'+k+'" data-to="'+a.d+'">Slaap daar</button></div>').join('')}
     h+='</div>'});
   if(n>1)h+='<button class="btn danger" id="dClear" style="width:100%;margin-bottom:10px">Alle overnachtingen wissen</button>';
   const p=trip.pace;
   h+='<details class="card" id="dPace"'+(keepOpen.dPace?' open':'')+'><summary>Loopsnelheid aanpassen</summary><div class="row" style="margin-top:10px"><label class="field">Vlak (km/u)<input type="number" inputmode="decimal" id="pFlat" min="2" max="7" step="0.5" value="'+p.flat+'"></label><label class="field">Stijgen (m/u)<input type="number" inputmode="numeric" id="pUp" min="150" max="800" step="50" value="'+p.up+'"></label><label class="field">Dalen (m/u)<input type="number" inputmode="numeric" id="pDown" min="200" max="1200" step="50" value="'+p.down+'"></label></div><p class="note">Looptijd is zonder pauzes en voorzichtig gerekend; wegwijzers en gidsen geven vaak kortere tijden. Licht, gemiddeld of zwaar is een schatting op basis van looptijd en klimmen, niet van het terrein.</p></details>';
   el.innerHTML=h;el.scrollTop=sc;
-  el.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>planByHours(+b.dataset.h));
+  el.querySelectorAll('[data-h],[data-plan]').forEach(b=>b.onclick=()=>planByHours(+(b.dataset.h||b.dataset.plan)));
+  el.querySelectorAll('[data-pref]').forEach(b=>b.onclick=()=>{store.pref=b.dataset.pref;save();if(trip.planH)planByHours(trip.planH);else{renderEtappes();toast(store.pref?'Voorkeur: '+PREF.find(x=>x[0]===store.pref)[1].toLowerCase()+'. Kies hierboven hoe lang je per dag loopt.':'Geen voorkeur.',3500)}});
   $('#dMin').onclick=()=>{wantDays=Math.max(1,wantDays-1);renderEtappes()};$('#dPlus').onclick=()=>{wantDays=Math.min(40,wantDays+1);renderEtappes()};
   $('#dGo').onclick=()=>{trip.planH=null;autoSplit(wantDays);toast('Route verdeeld over '+wantDays+(wantDays===1?' dag':' dagen'),2200)};
   $('#dStart').onchange=e=>{trip.start=e.target.value;WX={};refresh()};
@@ -1533,7 +1580,7 @@ function renderEtappes(){
     el.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>findPick(FIND.res[+b.dataset.pick]));
     el.querySelectorAll('[data-pin]').forEach(b=>b.onclick=()=>{const r=FIND.res[+b.dataset.pin];if(!wide())showTab('Kaart');map.setView([r.lat,r.lng],14);placePin({n:r.n,lat:r.lat,lng:r.lng})})}
   el.querySelectorAll('[data-mv]').forEach(b=>b.onclick=()=>{FIND=null;const k=+b.dataset.mv;trip.breaks[k]=Math.min(TR.total-200,Math.max(200,trip.breaks[k]+ +b.dataset.d));refresh()});
-  el.querySelectorAll('[data-snap]').forEach(b=>b.onclick=()=>{trip.breaks[+b.dataset.snap]=+b.dataset.to;refresh()});
+  el.querySelectorAll('[data-snap]').forEach(b=>b.onclick=()=>{FIND=null;trip.breaks[+b.dataset.snap]=+b.dataset.to;trip.planH=null;refresh()});
   el.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{FIND=null;trip.breaks.splice(+b.dataset.rm,1);trip.planH=null;wantDays=0;refresh()});
   [['#pFlat','flat',2,7],['#pUp','up',150,800],['#pDown','down',200,1200]].forEach(([id,key,lo,hi])=>$(id).onchange=e=>{const v=parseFloat(String(e.target.value).replace(',','.'));if(v>=lo&&v<=hi){trip.pace[key]=v;refresh()}else e.target.value=trip.pace[key]})}
 
