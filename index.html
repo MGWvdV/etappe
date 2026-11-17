@@ -1070,30 +1070,37 @@ let saveT;function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{store.cu
 /* ---------- kaarttegels bewaren (alleen wat je zelf hebt bekeken) ---------- */
 const TDB=(()=>{let dbp=null;
   const open=()=>dbp||(dbp=new Promise((res,rej)=>{const r=indexedDB.open('etappe-tiles',3);r.onupgradeneeded=()=>{const db=r.result;['t','v','g'].forEach(n=>{if(!db.objectStoreNames.contains(n))db.createObjectStore(n)})};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}));
-  const tx=async(st,mode,fn)=>{try{const db=await open();return await new Promise(res=>{const q=fn(db.transaction(st,mode).objectStore(st));q.onsuccess=()=>res(q.result);q.onerror=()=>res(null)})}catch(e){return null}};
-  return{get:(k,st='t')=>tx(st,'readonly',o=>o.get(k)),put:(k,v,st='t')=>tx(st,'readwrite',o=>o.put(v,k)),del:(k,st='t')=>tx(st,'readwrite',o=>o.delete(k)),keys:()=>tx('t','readonly',o=>o.getAllKeys()),clear:()=>tx('t','readwrite',o=>o.clear())}})();
+  const tx=async(st,mode,fn,ms)=>{try{const db=await open();return await new Promise((res,rej)=>{const t=setTimeout(()=>rej(new Error('opslag hapert')),ms||(mode==='readonly'?2000:8000));
+      const q=fn(db.transaction(st,mode).objectStore(st));q.onsuccess=()=>{clearTimeout(t);res(q.result)};q.onerror=()=>{clearTimeout(t);res(null)}})}catch(e){dbp=null;return null}};
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')dbp=null});
+  return{get:(k,st='t')=>tx(st,'readonly',o=>o.get(k)),put:(k,v,st='t')=>tx(st,'readwrite',o=>o.put(v,k)),del:(k,st='t')=>tx(st,'readwrite',o=>o.delete(k)),keys:()=>tx('t','readonly',o=>o.getAllKeys(),15000),clear:()=>tx('t','readwrite',o=>o.clear())}})();
 const haveKeys=new Set(),MAXTILES=9000;let fullWarned=false;
 TDB.keys().then(ks=>{(ks||[]).forEach(k=>haveKeys.add(k));if(curTab==='Tochten')renderTochten()});
+const fetchTile=(url,ms)=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);return fetch(url,{mode:'cors',signal:c.signal}).finally(()=>clearTimeout(t))};
 const CachedLayer=L.TileLayer.extend({
   createTile(coords,done){const img=document.createElement('img'),self=this;img.alt='';img.setAttribute('role','presentation');
-    const url=this.getTileUrl(coords),key=this.options.cid+'/'+this._getZoomForUrl()+'/'+coords.x+'/'+coords.y;
-    const show=(src,revoke)=>{img.onload=()=>{if(revoke)URL.revokeObjectURL(src);done(null,img)};img.onerror=()=>done(new Error('tegel'),img);img.src=src};
-    TDB.get(key).then(hit=>{
-      if(hit&&hit.b){haveKeys.add(key);show(URL.createObjectURL(new Blob([hit.b],{type:hit.m||'image/png'})),true);return}
-      if(self.options.corsOk===false||!HOSTED){show(url);return}
-      fetch(url,{mode:'cors'}).then(r=>{if(!r.ok)throw 0;return r.blob()}).then(async bl=>{
-        if(haveKeys.size<MAXTILES){const b=await bl.arrayBuffer();TDB.put(key,{b,m:bl.type,t:Date.now()});haveKeys.add(key)}
+    const url=this.getTileUrl(coords),key=this.options.cid+'/'+this._getZoomForUrl()+'/'+coords.x+'/'+coords.y;let fin=false;
+    const ok=()=>{if(!fin){fin=true;self._fail=0;done(null,img)}},bad=()=>{if(!fin){fin=true;done(new Error('tegel'),img)}};
+    const guard=setTimeout(()=>{if(!fin){img.src='';bad()}},25000);   // vangnet: een tegel blijft nooit eeuwig laden
+    const plain=(tries)=>{img.onload=()=>{clearTimeout(guard);ok()};img.onerror=()=>{if(tries>0&&!fin)setTimeout(()=>plain(tries-1),1200);else{clearTimeout(guard);bad()}};img.src=tries<1?url+(url.includes('?')?'&':'?')+'r=1':url};
+    const show=src=>{img.onload=()=>{URL.revokeObjectURL(src);clearTimeout(guard);ok()};img.onerror=()=>{URL.revokeObjectURL(src);plain(1)};img.src=src};
+    TDB.get(key).then(hit=>{if(fin)return;
+      if(hit&&hit.b){haveKeys.add(key);show(URL.createObjectURL(new Blob([hit.b],{type:hit.m||'image/png'})));return}
+      if(self.options.corsOk===false||!HOSTED){plain(1);return}
+      fetchTile(url,10000).then(r=>{if(!r.ok)throw new Error('status '+r.status);return r.blob()}).then(bl=>{
+        if(haveKeys.size<MAXTILES)bl.arrayBuffer().then(b=>{TDB.put(key,{b,m:bl.type,t:Date.now()});haveKeys.add(key)}).catch(()=>{});
         else if(!fullWarned){fullWarned=true;toast('De kaartopslag is vol. Wis bewaarde kaartdelen onder Tochten om nieuwe te bewaren.')}
-        show(URL.createObjectURL(bl),true)
-      }).catch(()=>{ // lukt de gewone afbeelding wel, dan staat de kaartdienst opslaan niet toe
-        img.onload=()=>{self._fail=(self._fail||0)+1;if(self._fail>=3)self.options.corsOk=false;done(null,img)};img.onerror=()=>done(new Error('tegel'),img);img.src=url})});
+        show(URL.createObjectURL(bl))
+      }).catch(e=>{if(fin)return;const maybeCors=e&&e.name==='TypeError';plain(1);if(maybeCors){const o=img.onload;img.onload=()=>{self._cors=(self._cors||0)+1;if(self._cors>=3)self.options.corsOk=false;o()}}})});   // lukt de gewone afbeelding wel, dan staat de kaartdienst opslaan niet toe
     return img}});
 
 /* ---------- kaart ---------- */
 const map=L.map('map',{zoomControl:false,maxZoom:19}).setView([46.9,10.4],6);
 let bases={},terr=[];
-function onTileErr(){const n=Date.now();terr=terr.filter(t=>n-t<15000);terr.push(n);
-  if(terr.length>=8&&trip.sketch&&!sketchOn()){terr=[];autoSketch=true;applyLayers();toast('De kaart laadt niet. Je ziet nu de offline schetskaart. Via Lagen schakel je terug.',6500)}}
+let autoOsm=false;
+function onTileErr(e){const n=Date.now();terr=terr.filter(t=>n-t<20000);terr.push(n);if(terr.length<6||sketchOn())return;terr=[];
+  if(navigator.onLine!==false&&!autoOsm&&(store.base||'topo')==='topo'&&e&&e.target===bases.topo){autoOsm=true;applyLayers();toast('De topografische kaart reageert nu niet. Je ziet tijdelijk de standaardkaart. Via Lagen schakel je terug.',6500);return}
+  if(trip.sketch){autoSketch=true;applyLayers();toast('De kaart laadt niet. Je ziet nu de offline schetskaart. Via Lagen schakel je terug.',6500)}}
 function makeBases(){Object.values(bases).forEach(l=>map.removeLayer(l));const sh=!!store.sharp; // scherp: tegels één niveau dieper, half zo groot getekend
   bases={topo:new CachedLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{cid:'topo',maxNativeZoom:sh?16:17,maxZoom:sh?20:19,detectRetina:sh,subdomains:'abc',attribution:'© OpenStreetMap, SRTM · OpenTopoMap (CC-BY-SA)'}),
     osm:new CachedLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{cid:'osm',maxNativeZoom:sh?18:19,maxZoom:sh?20:19,detectRetina:sh,attribution:'© OpenStreetMap'})};
@@ -1103,7 +1110,7 @@ const trails=L.tileLayer('https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.pn
 let SK=null,autoSketch=false;
 const sketchOn=()=>store.base==='sketch'||autoSketch;
 function applyLayers(){Object.values(bases).forEach(l=>map.removeLayer(l));const sk=sketchOn();
-  if(!sk)(bases[store.base]||bases.topo).addTo(map);
+  if(!sk)(autoOsm&&(store.base||'topo')==='topo'?bases.osm:bases[store.base]||bases.topo).addTo(map);
   if(store.trails&&!sk)trails.addTo(map);else map.removeLayer(trails);
   $('#map').classList.toggle('paper',sk);drawSketch();
   $('#baseTopo').checked=store.base==='topo'||!bases[store.base]&&store.base!=='sketch';$('#baseOsm').checked=store.base==='osm';$('#baseSketch').checked=store.base==='sketch';$('#ovTrails').checked=!!store.trails;$('#ovPois').checked=store.showPois!==false;$('#optSharp').checked=!!store.sharp;$('#optSnap').checked=trip.snap!==false}
@@ -1935,7 +1942,7 @@ $('#btnDraw').onclick=()=>{closePops();if(routesOpen)closeRoutes();setDrawing(!d
 $('#btnRoutes').onclick=()=>{closePops();if(routesOpen)closeRoutes();else openRoutes()};
 $('#btnLayers').onclick=()=>togglePop('#popLayers');$('#btnMore').onclick=()=>togglePop('#popMore');
 $('#btnLocate').onclick=()=>{closePops();if(watchId!=null&&follow){follow=false;locBtn();toast('De kaart volgt je niet meer. Je positie blijft zichtbaar.',2400)}else{startGps(true);toast('De kaart volgt je positie. Verschuif de kaart om dat te stoppen.',2800)}};
-$('#baseTopo').onchange=$('#baseOsm').onchange=$('#baseSketch').onchange=e=>{autoSketch=false;store.base=e.target.value;applyLayers();save();if(missOn)drawMissing();if(store.base==='sketch'&&!trip.sketch)toast(TR?'Voor deze tocht is nog geen schetskaart bewaard. Kies Meer > Zet tocht offline klaar.':'Teken eerst een route. Daarna zet je hem offline klaar.',5000)};
+$('#baseTopo').onchange=$('#baseOsm').onchange=$('#baseSketch').onchange=e=>{autoSketch=false;autoOsm=false;store.base=e.target.value;applyLayers();save();if(missOn)drawMissing();if(store.base==='sketch'&&!trip.sketch)toast(TR?'Voor deze tocht is nog geen schetskaart bewaard. Kies Meer > Zet tocht offline klaar.':'Teken eerst een route. Daarna zet je hem offline klaar.',5000)};
 $('#optSharp').onchange=e=>{store.sharp=e.target.checked;save();makeBases();applyLayers();toast(store.sharp?'Scherpere kaart: fijnere lijnen, kleinere letters.':'Gewone kaart: grotere letters.',2600)};
 $('#ovTrails').onchange=e=>{store.trails=e.target.checked;applyLayers();save()};
 $('#ovPois').onchange=e=>{store.showPois=e.target.checked;save();drawPois();if(store.showPois&&TR&&!trip.pois){closePops();bg(loadPois)}};
