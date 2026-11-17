@@ -764,6 +764,9 @@ button{cursor:pointer;touch-action:manipulation}
 #grab span,#rGrab span{display:block;width:38px;height:5px;border-radius:3px;background:var(--line);margin:0 auto}
 #grab small{display:block;font-size:11px;color:var(--muted);margin-top:4px}
 #empty p{margin:0 0 10px}
+#sName{display:block;width:100%;border:0;border-bottom:1px dashed var(--line);background:transparent;font-size:16px;font-weight:700;color:var(--ink);padding:2px 2px 6px;margin-bottom:8px;border-radius:0;text-align:center}
+#sName:focus{outline:none;border-bottom:2px solid var(--pine)}
+.pin{width:22px;height:22px;border-radius:50% 50% 50% 0;background:#1b6fd6;border:3px solid #fff;transform:rotate(-45deg);box-shadow:0 1px 4px rgba(0,0,0,.4)}
 .rsheet{position:absolute;z-index:720;left:0;right:0;bottom:0;height:62%;background:var(--paper);border-radius:18px 18px 0 0;box-shadow:0 -2px 14px rgba(16,28,22,.22);display:none;flex-direction:column;padding:0 14px}
 .rsheet.small{height:34%}
 #rGrab{display:block;width:100%;border:0;background:transparent;padding:9px 0 7px}
@@ -950,6 +953,7 @@ body.navon #tools{top:calc(env(safe-area-inset-top,0px) + 10px)}
 
   <div id="sheet">
     <button id="grab" aria-label="Hoogteprofiel tonen of verbergen"><span></span><small id="grabT"></small></button>
+    <input id="sName" type="text" maxlength="60" placeholder="Geef je tocht een naam" aria-label="Naam van de tocht" enterkeyhint="done" hidden>
     <div id="empty"><p id="emptyT">Nog geen route in deze tocht.</p><div class="row" id="emptyB"><button class="btn primary grow" id="emRoutes" type="button">Route zoeken</button><button class="btn grow" id="emDraw" type="button">Zelf tekenen</button></div></div>
     <div id="stats" hidden>
       <div><b class="num" id="sKm">0</b><span>km</span></div>
@@ -1237,6 +1241,7 @@ function drawPois(){gPoi.clearLayers();if(!trip.pois||store.showPois===false||!T
       box.innerHTML='<b>'+esc(p.n)+'</b><br>'+PT[p.t][0]+(p.ele?' · '+fM(p.ele)+' m':'')+'<br>km '+fKm(p.d)+(p.off>60?' · '+fM(p.off)+' m van de route':'')+(p.tel?'<br>'+esc(p.tel):'')+(p.web?'<br><a class="link" href="'+esc(p.web)+'" target="_blank" rel="noopener">Website</a>':'');
       if(SLEEP.includes(p.t)){const has=trip.breaks.some(b=>Math.abs(b-p.d)<50),o=document.createElement('button');o.className='btn small';o.textContent=has?'Overnachting hier verwijderen':'Overnachting hier';
         o.onclick=()=>{if(has)trip.breaks=trip.breaks.filter(b=>Math.abs(b-p.d)>=50);else trip.breaks.push(p.d);map.closePopup();refresh()};box.appendChild(o)}
+      if(p.off>80){const v=document.createElement('button');v.className='btn small';v.textContent=SLEEP.includes(p.t)?'Route hierlangs en overnachten':'Route hierlangs';v.onclick=()=>{map.closePopup();run(()=>viaPlace({lat:p.lat,lng:p.lng,n:p.n},SLEEP.includes(p.t)))};box.appendChild(v)}
       m.unbindPopup();m.bindPopup(box).openPopup()})})}
 let poiZ=map.getZoom();map.on('zoomend',()=>{const z=map.getZoom(),band=v=>v<10?0:v<13?1:2;if(band(z)!==band(poiZ))drawPois();poiZ=z});
 
@@ -1301,11 +1306,33 @@ async function prepOffline(){if(!TR)return;
   catch(e){toast(navigator.onLine===false?'Je bent offline. Klaarzetten kan alleen met verbinding.':'De offline kaart ophalen lukte niet. De dienst is druk; probeer het over een paar minuten opnieuw.',6000)}}
 function showSketch(){autoSketch=false;store.base='sketch';save();applyLayers();showTab('Kaart');fit()}
 
+/* ---------- route langs een gekozen plek (hut) leggen ---------- */
+async function viaPlace(pl,night){if(!TR)return;const nr=nearest([pl.lat,pl.lng]),n=TR.P.length-1;
+  if(nr.d<80){if(night&&!trip.breaks.some(b=>Math.abs(b-TR.D[nr.i])<50))trip.breaks.push(TR.D[nr.i]);toast(esc(pl.n)+' ligt al aan je route.'+(night?' Overnachting toegevoegd.':''),3500);return}
+  if(nr.d>15000){toast(pl.n+' ligt '+fKm(nr.d)+' km van je route. Dat is te ver voor een omweg; teken dat stuk zelf.',6000);return}
+  const dE=Math.max(300,nr.d*1.2),iE=idxAt(Math.max(0,TR.D[nr.i]-dE)),iR=idxAt(Math.min(TR.total,TR.D[nr.i]+dE)),P=TR.P.map(c=>c.slice()),E=P[iE],R=P[iR],dA=TR.D[iE],dB=TR.D[iR];
+  const hut={lat:r5(pl.lat),lng:r5(pl.lng)},L1=await routeLeg({lat:E[0],lng:E[1]},hut),L2=await routeLeg(hut,{lat:R[0],lng:R[1]});
+  const len=l=>{let d=0;for(let i=1;i<l.coords.length;i++)d+=hav(l.coords[i-1],l.coords[i]);return d},l1=len(L1),delta=l1+len(L2)-(dB-dA);
+  const wps=[{lat:P[0][0],lng:P[0][1]}],legs=[];
+  if(iE>0){legs.push({coords:P.slice(0,iE+1),locked:true});wps.push({lat:E[0],lng:E[1]})}
+  legs.push(L1);wps.push(hut);legs.push(L2);wps.push({lat:R[0],lng:R[1]});
+  if(iR<n){legs.push({coords:P.slice(iR),locked:true});wps.push({lat:P[n][0],lng:P[n][1]})}
+  trip.wps=wps;trip.legs=legs;trip.breaks=trip.breaks.filter(b=>b<=dA||b>=dB).map(b=>b>=dB?b+delta:b);if(night)trip.breaks.push(dA+l1);
+  toast('Route loopt nu langs '+pl.n+': '+(delta>=0?fKm(delta)+' km erbij':fKm(-delta)+' km korter')+'.'+(L1.straight||L2.straight?' Een deel is een rechte lijn; controleer dat stuk.':''),6000)}
+const gFind=L.layerGroup().addTo(map);
+function placePin(pl){gFind.clearLayers();const m=L.marker([pl.lat,pl.lng],{icon:L.divIcon({className:'',html:'<div class="pin"></div>',iconSize:[22,22],iconAnchor:[11,11]}),zIndexOffset:800}).addTo(gFind),box=document.createElement('div');
+  const off=TR?nearest([pl.lat,pl.lng]).d:null;box.innerHTML='<b>'+esc(pl.n)+'</b>'+(off!=null?'<br>'+(off<80?'aan je route':(off>=1000?fKm(off)+' km':fM(off)+' m')+' van je route'):'');
+  const add=(txt,cls,fn)=>{const b=document.createElement('button');b.className='btn small '+cls;b.textContent=txt;b.onclick=()=>{map.closePopup();gFind.clearLayers();fn()};box.appendChild(b)};
+  if(TR){add('Route hierlangs','primary',()=>run(()=>viaPlace(pl,false)));add('Hierlangs en hier overnachten','',()=>run(()=>viaPlace(pl,true)))}
+  else add(trip.wps.length?'Route hierheen':'Begin hier je route','primary',()=>run(()=>addWp({lat:pl.lat,lng:pl.lng})));
+  m.bindPopup(box,{closeButton:true}).openPopup();m.on('popupclose',()=>setTimeout(()=>gFind.clearLayers(),200))}
+
 /* ---------- cijfers en profiel ---------- */
 function renderSheet(){
   const has=!!TR;if(!has)$('#navGo').hidden=true;$('#empty').hidden=has;$('#stats').hidden=!has;$('#profilewrap').hidden=!has;
   $('#emptyT').textContent=trip.wps.length===1?'Startpunt gezet. Tik op de kaart voor het volgende punt.':'Nog geen route in deze tocht.';$('#emptyB').hidden=trip.wps.length>0||drawing;
   $('#dbUndo').disabled=!trip.wps.length;if(drawing)setDrawing(true);
+  const sn=$('#sName');sn.hidden=!trip.wps.length;if(document.activeElement!==sn)sn.value=trip.name==='Nieuwe tocht'?'':trip.name;
   $('#grabT').textContent=has?($('#sheet').classList.contains('closed')?'Toon hoogteprofiel':'Verberg hoogteprofiel'):'';
   if(has){const n=TR.P.length-1,days=trip.breaks.length+1;$('#sKm').textContent=fKm(TR.total);$('#sUp').textContent=TR.hasEle?fM(TR.UP[n]):'–';$('#sDn').textContent=TR.hasEle?fM(TR.DN[n]):'–';
     $('#navGo').hidden=false;$('#nextStep').hidden=!(days===1&&TR.hasEle&&TR.T[n]>9);$('#nextStep').textContent='Verdeel over '+Math.ceil(TR.T[n]/6.5)+' dagen';
@@ -1341,7 +1368,8 @@ $('#grab').addEventListener('touchend',e=>{if(grabY==null)return;const dy=e.chan
 $('#grab').onclick=()=>{if(grabSwiped)return;setSheet($('#sheet').classList.contains('closed'))};
 $('#toast').onclick=()=>{$('#toast').style.display='none'};$('#nextStep').onclick=()=>{wantDays=0;showTab('Etappes')};
 $('#emRoutes').onclick=()=>openRoutes();$('#emDraw').onclick=()=>{setDrawing(true);renderSheet()};
-$('#dbDone').onclick=()=>{setDrawing(false);renderSheet()};$('#dbUndo').onclick=()=>{if(trip.wps.length)run(()=>removeWp(trip.wps.length-1))};
+$('#dbDone').onclick=()=>{setDrawing(false);renderSheet();if(TR&&trip.name==='Nieuwe tocht'){$('#sName').focus();toast('Geef je tocht een naam.',2600)}};
+$('#sName').oninput=e=>{trip.name=e.target.value.trim()||'Nieuwe tocht';save()};$('#sName').onkeydown=e=>{if(e.key==='Enter')e.target.blur()};$('#dbUndo').onclick=()=>{if(trip.wps.length)run(()=>removeWp(trip.wps.length-1))};
 
 /* ---------- etappes ---------- */
 let wantDays=0;
@@ -1715,7 +1743,7 @@ $('#searchform').onsubmit=async e=>{e.preventDefault();const q=$('#q').value.tri
   const rb=()=>{const b=document.createElement('button');b.type='button';b.innerHTML='Zoek wandelroutes met “'+esc(q)+'”<small>Bekende routes op naam of nummer</small>';b.onclick=()=>{box.style.display='none';openRoutes(q)};box.appendChild(b)};
   try{const f=await geocode(q);box.innerHTML='';if(!f.length){box.innerHTML='<button disabled>Geen plaats gevonden met deze naam</button>';rb();return}
     f.forEach(x=>{const b=document.createElement('button');b.type='button';b.innerHTML=esc(x.name)+'<small>'+esc(x.sub)+'</small>';
-      b.onclick=()=>{box.style.display='none';$('#q').value=x.name;map.setView([x.lat,x.lng],x.big?12:14)};box.appendChild(b)});rb()
+      b.onclick=()=>{box.style.display='none';$('#q').value=x.name;map.setView([x.lat,x.lng],x.big?12:14);if(!x.big)placePin({lat:x.lat,lng:x.lng,n:x.name})};box.appendChild(b)});rb()
   }catch(err){box.innerHTML='<button disabled>'+(navigator.onLine===false?'Je bent offline. Zoeken kan alleen met verbinding.':HOSTED?'De zoekdiensten reageren niet. Probeer het zo opnieuw, of test de verbindingen onder Tochten.':'Zoeken is geblokkeerd omdat de app als los bestand is geopend. Via een https-adres werkt het.')+'</button>'}};
 $('#q').addEventListener('input',()=>{if(!$('#q').value)$('#results').style.display='none'});
 
