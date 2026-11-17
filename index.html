@@ -1081,23 +1081,36 @@ TDB.keys().then(ks=>{(ks||[]).forEach(k=>haveKeys.add(k));if(curTab==='Tochten')
 const fetchTile=(url,ms)=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);return fetch(url,{mode:'cors',signal:c.signal}).finally(()=>clearTimeout(t))};
 const TS={ok:0,cache:0,fb:0,fail:0,saved:0,last:''};   // tellers voor deze sessie, te zien onder Tochten
 // Bewaren gebeurt los van het tonen: hooguit twee tegels tegelijk, en alleen als de kaart niet druk aan het laden is.
-const saveQ=[];let saving=0;
-function queueSave(key,url){if(haveKeys.has(key)||haveKeys.size>=MAXTILES||!HOSTED)return;if(saveQ.length>300)saveQ.shift();saveQ.push([key,url]);pumpSave()}
-function pumpSave(){while(saving<2&&saveQ.length){const [key,url]=saveQ.pop();if(haveKeys.has(key))continue;saving++;
-  fetchTile(url,15000).then(r=>{if(!r.ok)throw 0;return r.arrayBuffer().then(b=>TDB.put(key,{b,m:r.headers.get('content-type')||'image/png',t:Date.now()}))}).then(()=>{haveKeys.add(key);TS.saved++}).catch(()=>{}).finally(()=>{saving--;setTimeout(pumpSave,150)})}
+// Bewaren gebeurt los van het tonen, vanuit de al geladen afbeelding: één download per tegel, één tegel tegelijk.
+const saveQ=[];let saving=false,saveCv=null;
+function queueSave(key,img){if(haveKeys.has(key)||haveKeys.size>=MAXTILES||!HOSTED)return;if(saveQ.length>150)saveQ.shift();saveQ.push([key,img]);if(!saving)setTimeout(pumpSave,200)}
+function pumpSave(){const it=saveQ.pop();if(!it){saving=false;return}saving=true;const [key,img]=it;
+  const next=()=>setTimeout(pumpSave,60);
+  if(haveKeys.has(key)||!img.naturalWidth){next();return}
+  try{saveCv=saveCv||document.createElement('canvas');saveCv.width=img.naturalWidth;saveCv.height=img.naturalHeight;const cx=saveCv.getContext('2d');cx.drawImage(img,0,0);
+    saveCv.toBlob(bl=>{if(!bl){next();return}bl.arrayBuffer().then(b=>TDB.put(key,{b,m:'image/jpeg',t:Date.now()})).then(()=>{haveKeys.add(key);TS.saved++}).catch(()=>{}).finally(next)},'image/jpeg',.88)}
+  catch(e){next()}   // bijvoorbeeld als de kaartdienst opslaan niet toestaat
   if(haveKeys.size>=MAXTILES&&!fullWarned){fullWarned=true;toast('De kaartopslag is vol. Wis bewaarde kaartdelen onder Tochten om nieuwe te bewaren.')}}
 const CachedLayer=L.TileLayer.extend({
-  // Online laadt de kaart precies zoals de routelaag: een gewone afbeelding. De bewaarde kopie komt pas in beeld als dat niet lukt.
+  // Online laadt de kaart als gewone afbeelding, net als de routelaag. De bewaarde kopie komt pas in beeld als dat niet lukt.
   createTile(coords,done){const img=document.createElement('img'),self=this;img.alt='';img.setAttribute('role','presentation');
     const z=this._getZoomForUrl(),url=this.getTileUrl(coords),key=this.options.cid+'/'+z+'/'+coords.x+'/'+coords.y;let fin=false,timer=0;
+    img._cancel=()=>{fin=true;clearTimeout(timer)};   // tegel van een vorig zoomniveau: niet verder proberen
     const ok=()=>{if(!fin){fin=true;clearTimeout(timer);done(null,img)}},bad=()=>{if(!fin){fin=true;clearTimeout(timer);TS.fail++;done(new Error('tegel'),img)}};
-    const load=(src,ms,onFail,onOk)=>{clearTimeout(timer);img.onload=()=>{if(fin)return;onOk&&onOk();ok()};img.onerror=()=>{if(!fin)onFail()};timer=setTimeout(()=>{if(!fin){img.onload=img.onerror=null;onFail()}},ms);img.src=src};
-    const fallback=why=>{TS.last=why;const fu=self.options.fallback;if(!fu||fin){bad();return}TS.fb++;self.fire('tilefallback');load(L.Util.template(fu,{z,x:coords.x,y:coords.y}),15000,bad,()=>{TS.ok++})};
-    const fromStore=why=>{if(!haveKeys.has(key)){fallback(why);return}
+    const load=(src,ms,onFail,onOk,cors)=>{clearTimeout(timer);img.crossOrigin=cors?'anonymous':null;img.onload=()=>{if(fin)return;onOk&&onOk();ok()};img.onerror=()=>{if(!fin)onFail()};timer=setTimeout(()=>{if(!fin){img.onload=img.onerror=null;onFail()}},ms);img.src=src};
+    const fallback=why=>{if(fin)return;TS.last=why;const fu=self.options.fallback;if(!fu){bad();return}TS.fb++;self.fire('tilefallback');load(L.Util.template(fu,{z,x:coords.x,y:coords.y}),15000,bad,()=>{TS.ok++})};
+    const fromStore=why=>{if(fin)return;if(!haveKeys.has(key)){fallback(why);return}
       TDB.get(key).then(hit=>{if(fin)return;if(!hit||!hit.b){fallback(why);return}const u=URL.createObjectURL(new Blob([hit.b],{type:hit.m||'image/png'}));load(u,8000,()=>{URL.revokeObjectURL(u);fallback(why)},()=>{URL.revokeObjectURL(u);TS.cache++})})};
+    const why=()=>navigator.onLine===false?'offline':'geen antwoord of fout van de kaartdienst';
+    const net=self.options.corsOk!==false&&HOSTED;
     if(navigator.onLine===false&&haveKeys.has(key))fromStore('offline');
-    else load(url,12000,()=>fromStore(navigator.onLine===false?'offline':'geen antwoord of fout van de kaartdienst'),()=>{TS.ok++;queueSave(key,url)});
-    return img}});
+    else load(url,12000,()=>{if(fin)return;if(net&&navigator.onLine!==false){
+        // misschien weigert de dienst het bewaren (CORS): nog één keer als gewone afbeelding
+        load(url+(url.includes('?')?'&':'?')+'p=1',10000,()=>fromStore(why()),()=>{TS.ok++;self._cors=(self._cors||0)+1;if(self._cors>=3)self.options.corsOk=false})}
+      else fromStore(why())},()=>{TS.ok++;if(net)queueSave(key,img)},net);
+    return img},
+  _abortLoading(){for(const k in this._tiles){const t=this._tiles[k];if(t.coords.z!==this._tileZoom&&t.el._cancel)t.el._cancel()}L.TileLayer.prototype._abortLoading.call(this)}});
+
 
 /* ---------- kaart ---------- */
 const map=L.map('map',{zoomControl:false,maxZoom:19}).setView([46.9,10.4],6);
@@ -1111,7 +1124,7 @@ function onTileErr(e){const n=Date.now();terr=terr.filter(t=>n-t<20000);terr.pus
 function makeBases(){Object.values(bases).forEach(l=>map.removeLayer(l));const sh=!!store.sharp; // scherp: tegels één niveau dieper, half zo groot getekend
   bases={topo:new CachedLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{cid:'topo',maxNativeZoom:sh?16:17,maxZoom:sh?20:19,detectRetina:sh,subdomains:'abc',fallback:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',attribution:'© OpenStreetMap, SRTM · OpenTopoMap (CC-BY-SA)'}),
     osm:new CachedLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{cid:'osm',maxNativeZoom:sh?18:19,maxZoom:sh?20:19,detectRetina:sh,attribution:'© OpenStreetMap'})};
-  Object.values(bases).forEach(l=>l.on('tileerror',onTileErr));bases.topo.on('tilefallback',onTopoFb)}
+  Object.values(bases).forEach(l=>{l.on('tileerror',onTileErr);l.on('tileunload',e=>e.tile&&e.tile._cancel&&e.tile._cancel())});bases.topo.on('tilefallback',onTopoFb)}
 makeBases();map.attributionControl.setPrefix('');L.control.scale({imperial:false,position:'bottomleft',maxWidth:90}).addTo(map);
 const trails=L.tileLayer('https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png',{maxZoom:18,opacity:.85,attribution:'Waymarked Trails'});
 let SK=null,autoSketch=false;
@@ -1706,7 +1719,7 @@ map.on('moveend',()=>{if(missOn){clearTimeout(missT);missT=setTimeout(drawMissin
 /* ---------- tochten, notities en GPX ---------- */
 let delArm=null,diag=null;
 function tripSummary(t){let d=0;(t.legs||[]).forEach(l=>{for(let i=1;i<l.coords.length;i++)d+=hav(l.coords[i-1],l.coords[i])});const n=(t.breaks||[]).length+1;return d?fKm(d)+' km · '+n+(n===1?' dag':' dagen'):'nog geen route'}
-const APPVER='42 (17-11-2026)';
+const APPVER='43 (17-11-2026)';
 async function checkUpdate(){const b=$('#vCheck');if(b){b.disabled=true;b.textContent='Bezig…'}
   try{const t=await(await fetch('./?v='+Date.now(),{cache:'no-store'})).text(),m=t.match(/const APPVER='([^']+)'/);
     if(m&&m[1]!==APPVER){try{const r=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();if(r)await r.update()}catch(e){}toast('Nieuwe versie gevonden ('+m[1]+'). De app laadt opnieuw.',2500);setTimeout(()=>location.reload(),1200);return}
