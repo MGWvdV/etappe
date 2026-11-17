@@ -1,0 +1,115 @@
+{
+ "runs": [
+  {
+   "name": "webkit",
+   "steps": [
+    "z8_belgie (8 s): z8 topo 6/6 zichtbaar, laden:0 {\"ok\":12,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":12,\"last\":\"\"} haveKeys 12",
+    "zoom_9 (9 s): z9 topo 6/6 zichtbaar, laden:0 {\"ok\":18,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":18,\"last\":\"\"} haveKeys 18",
+    "zoom_10 (9 s): z10 topo 8/8 zichtbaar, laden:0 {\"ok\":26,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":26,\"last\":\"\"} haveKeys 26",
+    "zoom_11 (9 s): z11 topo 6/6 zichtbaar, laden:0 {\"ok\":32,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":32,\"last\":\"\"} haveKeys 32",
+    "zoom_12 (9 s): z12 topo 6/6 zichtbaar, laden:0 {\"ok\":38,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":38,\"last\":\"\"} haveKeys 38",
+    "zoom_13 (9 s): z13 topo 9/9 zichtbaar, laden:0 {\"ok\":47,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":47,\"last\":\"\"} haveKeys 47",
+    "schuif (9 s): z13 topo 17/17 zichtbaar, laden:0 {\"ok\":55,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":55,\"last\":\"\"} haveKeys 55",
+    "elzas_z13 (10 s): z13 topo 8/8 zichtbaar, laden:0 {\"ok\":63,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":63,\"last\":\"\"} haveKeys 63"
+   ],
+   "errors": [],
+   "failed": {},
+   "ok": {
+    "a.tile.opentopomap.org 200": 21,
+    "c.tile.opentopomap.org 200": 21,
+    "b.tile.opentopomap.org 200": 21,
+    "tile.waymarkedtrails.org 200": 63,
+    " 200": 63
+   }
+  },
+  {
+   "name": "webkit_herladen",
+   "steps": [
+    "z8_belgie (8 s): z8 topo 6/6 zichtbaar, laden:0 {\"ok\":12,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":12,\"last\":\"\"} haveKeys 12",
+    "na_herladen_z8 (6 s): z8 topo 6/6 zichtbaar, laden:0 {\"ok\":0,\"cache\":6,\"fb\":0,\"fail\":0,\"saved\":0,\"last\":\"\"} haveKeys 12",
+    "zoom_9 (9 s): z9 topo 6/6 zichtbaar, laden:0 {\"ok\":6,\"cache\":6,\"fb\":0,\"fail\":0,\"saved\":6,\"last\":\"\"} haveKeys 18",
+    "zoom_10 (9 s): z10 topo 8/8 zichtbaar, laden:0 {\"ok\":14,\"cache\":6,\"fb\":0,\"fail\":0,\"saved\":14,\"last\":\"\"} haveKeys 26",
+    "zoom_11 (9 s): z11 topo 6/6 zichtbaar, laden:0 {\"ok\":20,\"cache\":6,\"fb\":0,\"fail\":0,\"saved\":20,\"last\":\"\"} haveKeys 32",
+    "zoom_12 (9 s): z12 topo 6/6 zichtbaar, laden:0 {\"ok\":26,\"cache\":6,\"fb\":0,\"fail\":0,\"saved\":26,\"last\":\"\"} haveKeys 38",
+    "zoom_13 (9 s): z13 topo 9/9 zichtbaar, laden:0 {\"ok\":35,\"cache\":6,\"fb\":0,\"fail\":0,\"saved\":35,\"last\":\"\"} haveKeys 47",
+    "schuif (9 s): z13 topo 17/17 zichtbaar, laden:0 {\"ok\":43,\"cache\":6,\"fb\":0,\"fail\":0,\"saved\":43,\"last\":\"\"} haveKeys 55",
+    "elzas_z13 (10 s): z13 topo 8/8 zichtbaar, laden:0 {\"ok\":51,\"cache\":6,\"fb\":0,\"fail\":0,\"saved\":51,\"last\":\"\"} haveKeys 63"
+   ],
+   "errors": [],
+   "failed": {},
+   "ok": {
+    "b.tile.opentopomap.org 200": 23,
+    "tile.waymarkedtrails.org 200": 76,
+    "c.tile.opentopomap.org 200": 24,
+    "a.tile.opentopomap.org 200": 23,
+    " 200": 69
+   }
+  },
+  {
+   "name": "webkit_scherp",
+   "steps": [
+    "z8_belgie (8 s): z8 topo 20/20 zichtbaar, laden:0 {\"ok\":26,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":26,\"last\":\"\"} haveKeys 26",
+    "zoom_9 (9 s): z9 topo 24/24 zichtbaar, laden:0 {\"ok\":50,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":50,\"last\":\"\"} haveKeys 50",
+    "zoom_10 (9 s): z10 topo 24/24 zichtbaar, laden:0 {\"ok\":74,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":74,\"last\":\"\"} haveKeys 74",
+    "zoom_11 (9 s): z11 topo 24/24 zichtbaar, laden:0 {\"ok\":98,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":98,\"last\":\"\"} haveKeys 98",
+    "zoom_12 (9 s): z12 topo 24/24 zichtbaar, laden:0 {\"ok\":122,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":122,\"last\":\"\"} haveKeys 122",
+    "zoom_13 (9 s): z13 topo 24/24 zichtbaar, laden:0 {\"ok\":146,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":146,\"last\":\"\"} haveKeys 146",
+    "schuif (9 s): z13 topo 38/38 zichtbaar, laden:0 {\"ok\":164,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":164,\"last\":\"\"} haveKeys 164",
+    "elzas_z13 (10 s): z13 topo 24/24 zichtbaar, laden:0 {\"ok\":188,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":188,\"last\":\"\"} haveKeys 188"
+   ],
+   "errors": [],
+   "failed": {},
+   "ok": {
+    "a.tile.opentopomap.org 200": 70,
+    "b.tile.opentopomap.org 200": 71,
+    "c.tile.opentopomap.org 200": 71,
+    "tile.waymarkedtrails.org 200": 63,
+    " 200": 188
+   }
+  },
+  {
+   "name": "webkit_osm",
+   "steps": [
+    "z8_belgie (8 s): z8 osm 6/6 zichtbaar, laden:0 {\"ok\":12,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":12,\"last\":\"\"} haveKeys 12",
+    "zoom_9 (9 s): z9 osm 6/6 zichtbaar, laden:0 {\"ok\":18,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":18,\"last\":\"\"} haveKeys 18",
+    "zoom_10 (9 s): z10 osm 8/8 zichtbaar, laden:0 {\"ok\":26,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":26,\"last\":\"\"} haveKeys 26",
+    "zoom_11 (9 s): z11 osm 6/6 zichtbaar, laden:0 {\"ok\":32,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":32,\"last\":\"\"} haveKeys 32",
+    "zoom_12 (9 s): z12 osm 6/6 zichtbaar, laden:0 {\"ok\":38,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":38,\"last\":\"\"} haveKeys 38",
+    "zoom_13 (9 s): z13 osm 9/9 zichtbaar, laden:0 {\"ok\":47,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":47,\"last\":\"\"} haveKeys 47",
+    "schuif (9 s): z13 osm 17/17 zichtbaar, laden:0 {\"ok\":55,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":55,\"last\":\"\"} haveKeys 55",
+    "elzas_z13 (10 s): z13 osm 8/8 zichtbaar, laden:0 {\"ok\":63,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":63,\"last\":\"\"} haveKeys 63"
+   ],
+   "errors": [],
+   "failed": {},
+   "ok": {
+    "c.tile.opentopomap.org 200": 2,
+    "tile.waymarkedtrails.org 200": 63,
+    "b.tile.opentopomap.org 200": 2,
+    "a.tile.opentopomap.org 200": 2,
+    " 200": 63,
+    "tile.openstreetmap.org 200": 63
+   }
+  },
+  {
+   "name": "chromium",
+   "steps": [
+    "z8_belgie (8 s): z8 topo 6/6 zichtbaar, laden:0 {\"ok\":12,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":12,\"last\":\"\"} haveKeys 12",
+    "zoom_9 (9 s): z9 topo 6/6 zichtbaar, laden:0 {\"ok\":18,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":18,\"last\":\"\"} haveKeys 18",
+    "zoom_10 (9 s): z10 topo 8/8 zichtbaar, laden:0 {\"ok\":26,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":26,\"last\":\"\"} haveKeys 26",
+    "zoom_11 (9 s): z11 topo 6/6 zichtbaar, laden:0 {\"ok\":32,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":32,\"last\":\"\"} haveKeys 32",
+    "zoom_12 (9 s): z12 topo 6/6 zichtbaar, laden:0 {\"ok\":38,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":38,\"last\":\"\"} haveKeys 38",
+    "zoom_13 (9 s): z13 topo 9/9 zichtbaar, laden:0 {\"ok\":47,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":47,\"last\":\"\"} haveKeys 47",
+    "schuif (9 s): z13 topo 17/17 zichtbaar, laden:0 {\"ok\":55,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":55,\"last\":\"\"} haveKeys 55",
+    "elzas_z13 (10 s): z13 topo 8/8 zichtbaar, laden:0 {\"ok\":63,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":63,\"last\":\"\"} haveKeys 63"
+   ],
+   "errors": [],
+   "failed": {},
+   "ok": {
+    "tile.waymarkedtrails.org 200": 63,
+    "a.tile.opentopomap.org 200": 21,
+    "c.tile.opentopomap.org 200": 21,
+    "b.tile.opentopomap.org 200": 21
+   }
+  }
+ ]
+}

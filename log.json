@@ -1,0 +1,548 @@
+{
+ "started": "2026-11-17T16:01:21.382Z",
+ "steps": [
+  {
+   "name": "start",
+   "ok": true,
+   "ms": 4154,
+   "info": "Nog geen route in deze tocht. | Route zoeken | Zelf tekenen"
+  },
+  {
+   "name": "diensten",
+   "ok": true,
+   "ms": 7476,
+   "info": "Topografische kaart | werkt, ook offline te bewaren | Standaardkaart | werkt, ook offline te bewaren | Wandelroutes op de kaart | werkt, ook offline te bewaren | Route langs paden | werkt | Weer | werkt | Hoogtes | werkt | Plaatsen zoeken | werkt | Plaatsen zoeken, reserve | werkt | Routes op naam, snelle dienst | werkt | Bekende routes en hutten | te druk, probeer later | GPS | beschikbaar | Star"
+  },
+  {
+   "name": "topotegels_elzas",
+   "ok": true,
+   "ms": 4679,
+   "info": "a8:200 49647B/526ms ; b8:200 49647B/541ms ; a10:200 43640B/353ms ; b10:200 43640B/362ms ; a12:200 39162B/353ms ; b12:200 39162B/362ms ; a13:200 40130B/352ms ; b13:200 40130B/362ms ; a14:200 33712B/179ms ; b14:200 33712B/183ms ; a15:200 37012B/179ms ; b15:200 37012B/183ms ; a16:200 27110B/178ms ; b16:200 27110B/183ms ; a17:200 11765B/196ms ; b17:200 11765B/184ms"
+  },
+  {
+   "name": "kaart_elzas_inzoomen",
+   "ok": true,
+   "ms": 36063,
+   "info": "z11: topo 9/9 {\"ok\":15,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":15,\"last\":\"\"} || z13: topo 8/8 {\"ok\":23,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":23,\"last\":\"\"} || z15: topo 6/6 {\"ok\":29,\"cache\":0,\"fb\":0,\"fail\":0,\"saved\":29,\"last\":\"\"}"
+  },
+  {
+   "name": "plaats_zoeken",
+   "ok": true,
+   "ms": 5909,
+   "info": "Neustift im Stubaital | Tirol, Österreich | Neustift im Stubaital | Tirol, Österreich | Elferlifte Neustift im Stubaital | Neustift im Stubaital, Tirol, Österreich | Schulcampus Neustift im Stubaital | Neustift im Stubaital, Tirol, Österreich | SPAR Ferchl Neustift im Stubaital | Neustift im Stubaital, Tirol, Österreich | Fischereiverein Neustift | Neustift im Stubaital, Tirol, Österreich | Zoek w"
+  },
+  {
+   "name": "routes_gebied",
+   "ok": true,
+   "ms": 846,
+   "info": "02Zentralalpenweg 02 ; Gschnitztaler Hüttentour ; 123Jubiläumssteig Innsbrucker Hütte ; Stubaier Höhenweg ; Alpine Route Seblaskreuz - Brennerspitze ; Besinnungsweg ; Brandstattalm - Seblaskreuz ; Buttermilchsteig ; David Lama Gedenkweg ; Franz-Senn-Weg ; Gloatsteig ; Gsallersteig ; Herzlteichweg ; Hirtensteig ; Hühnerspiel - Brandstattalm"
+  },
+  {
+   "name": "route_op_naam",
+   "ok": true,
+   "ms": 1312,
+   "info": "Stubaier Höhenweg / regionaal"
+  },
+  {
+   "name": "route_voorbeeld",
+   "ok": true,
+   "ms": 2581,
+   "info": "Stubaier Höhenweg | regionaal · 73,0 km | Gebruik deze route | Website | Wikipedia | Meer info"
+  },
+  {
+   "name": "dienst_structuur",
+   "ok": true,
+   "ms": 1100,
+   "info": "{\"keys\":[\"type\",\"id\",\"name\",\"group\",\"linear\",\"symbol_id\",\"url\",\"wikipedia\",\"bbox\",\"tags\",\"route\"],\"route\":{\"t\":\"route\",\"len\":76214,\"start\":0,\"main\":[{\"t\":\"linear\",\"len\":8915,\"start\":0,\"ways\":6},{\"t\":\"linear\",\"len\":35313,\"start\":9048,\"ways\":58},{\"t\":\"linear\",\"len\":30770,\"start\":45909,\"ways\":33},{\"t\":\"linear\",\"len\":1216,\"start\":99653,\"ways\":1}],\"app\":[]},\"eleStatus\":200,\"eleKeys\":[\"min_elevation\",\"max_elevation\",\"segments\"],\"eleSegs\":98,\"eleSample\":\"{\\\"elevation\\\":[{\\\"x\\\":1257601.09,\\\"y\\\":5964628.76,\\\"ele\\\":2148,\\\"pos\\\":0},{\\\"x\\\":1257520.35,\\\"y\\\":5964581.58,\\\"ele\\\":2178,\\\"pos\\\":100},{\\\"x\\\":1257398.71,\\\"y\\\":5964502.56,\\\"ele\\\":2175,\\\"pos\\\":200},{\\\"x\\\":1257355.11,\\\"y\\\":5964471.36,\\\"ele\\\":2168,\\\"pos\\\":236.43}]}\"}"
+  },
+  {
+   "name": "tik_op_bekende_route",
+   "ok": true,
+   "ms": 7351,
+   "info": "lijst+lijn in 797 ms: Stubaier Höhenweg ; 102Wanderweg 102 - Stubai ; 02Zentralalpenweg 02"
+  },
+  {
+   "name": "terug_naar_stubaier",
+   "ok": true,
+   "ms": 1555,
+   "info": "Stubaier Höhenweg | regionaal · 73,0 km | Gebruik deze route | Toon hele route | Website | Wikipedia | Meer info"
+  },
+  {
+   "name": "route_overnemen",
+   "ok": true,
+   "ms": 3881,
+   "info": "73,0 | KM | 6.204 | M STIJGEN | 6.145 | M DALEN | 42:05 | UUR LOPEN || punten 4632, gaten 0"
+  },
+  {
+   "name": "profiel",
+   "ok": true,
+   "ms": 1664,
+   "info": "{\"min\":1749,\"max\":2853,\"km\":73,\"grootsteSprong\":91}"
+  },
+  {
+   "name": "hutten",
+   "ok": true,
+   "ms": 105768,
+   "info": "14 plekken; hutten: Elferhütte@0km/13m ; Innsbrucker Hütte@8.6km/11m ; Bremer Hütte@18.3km/13m ; Nürnberger Hütte@23.8km/21m ; Sulzenauhütte@28km/20m ; Dresdner Hütte@32.8km/17m ; Zollhütte@32.9km/11m ; Neue Regensburger Hütte@45.5km/18m ; Franz-Senn-Hütte@54.2km/24m ; Seducker Hochalm@60km/8m ; Starkenburger Hütte@69.3km/41m"
+  },
+  {
+   "name": "etappes_6_uur",
+   "ok": true,
+   "ms": 794,
+   "info": "8 dagen van ongeveer 6 uur. Van de 7 overnachtingen: 7 bij een slaapplek. || Dag 1 km 0,0 tot 8,6 ; 8,6 km 774 m stijgen 550 m dalen 4:45 uur lopen ; Slapen: Innsbrucker Hütte Berghut · km 8,6 · 2.369 m ; Dag 2 km 8,6 tot 18,3 ; 9,8 km 1.064 m stijgen 978 m dalen 6:43 uur lopen ; Slapen: Bremer Hütte Berghut · km 18,3 · 2.413 m ; Dag 3 km 18,3 tot 28,0 ; 9,7 km 798 m stijgen 978 m dalen 5:49 uur lopen ; Slapen: Sulzenauhütte Berghut · km 28,0 · 2.191 m ; Dag 4 km 28,0 tot 32,8 ; 4,8 km 529 m stijgen 415 m dalen 3:11 uur lopen ; Slapen: Dresdner Hütte Berghut · km 32,8 · 2.308 m ; Dag 5 km 32,8 tot 45,5 ; 12,7 km 1.075 m stijgen 1.106 m dalen 7:23 uur lopen ; Slapen: Neue Regensburger Hütte Berghut · km 45,5 · 2.286 m ; Dag 6 km 45,5 tot 54,2 ; 8,7 km 795 m stijgen 896 m dalen 5:32 uur lopen ; Slapen: Franz-Senn-Hütte Berghut · km 54,2 · 2.147 m ; Dag 7 km 54,2 tot 60,0 ; 5,8 km 346 m stijgen 366 m dalen 2:36 uur lopen ; Slapen: Seducker Hochalm Berghut · km 60,0 · 2.250 m ; Dag 8 km 60,0 tot 73,0 ; 13,0 km 824 m stijgen 857 m dalen 6:05 uur lopen ; Finish km 73,0"
+  },
+  {
+   "name": "dorpen_en_voorkeur",
+   "ok": true,
+   "ms": 2299,
+   "info": "dorpen:  || hut: Innsbrucker Hütte[hut], Bremer Hütte[hut], Sulzenauhütte[hut], Dresdner Hütte[hut], Neue Regensburger Hütte[hut], Franz-Senn-Hütte[hut], Seducker Hochalm[hut] | 4.8/6.7/5.8/3.2/7.4/5.5/2.6/6.1 || sleep: Innsbrucker Hütte[hut], Bremer Hütte[hut], Sulzenauhütte[hut], Dresdner Hütte[hut], Neue Regensburger Hütte[hut], Franz-Senn-Hütte[hut], Seducker Hochalm[hut] | 4.8/6.7/5.8/3.2/7.4/5.5/2.6/6.1 || camp: Innsbrucker Hütte[hut], Bremer Hütte[hut], Sulzenauhütte[hut], Dresdner Hütte[hut], Neue Regensburger Hütte[hut], Franz-Senn-Hütte[hut], Seducker Hochalm[hut] | 4.8/6.7/5.8/3.2/7.4/5.5/2.6/6.1 || vast 6: km 12.1[own], km 23[own], km 33.6[own], Neue Regensburger Hütte[hut], km 57.6[own] | 7.1/6.9/7/7/7/7 || melding: Dag 1, 2, 3 en 5 eindigen niet bij een slaapplek of dorp | Zo komt elke dag wel uit: | Herverdeel op 7 uur per dag | elke dag een slaapplek | 8 uur per dag | 6 dagen, elke nacht een slaapplek | 5 uur per dag | 8 dagen, elke nacht een slaapplek"
+  },
+  {
+   "name": "na_voorstel",
+   "ok": true,
+   "ms": 576,
+   "info": "Innsbrucker Hütte[hut], Bremer Hütte[hut], Dresdner Hütte[hut], Neue Regensburger Hütte[hut], Seducker Hochalm[hut]"
+  },
+  {
+   "name": "zoek_slaapplek",
+   "ok": true,
+   "ms": 1858,
+   "info": "1854 ms: Innsbrucker Hütte / Berghut · aan je route / Kaart / Slaap hier ; Alfaier Bergheimat / Hotel of pension · 2,1 km van je route, de route gaat dan om / Kaart / Slaap hier ; Alfaierhof / Hotel of pension · 2,1 km van je route, de route gaat dan om / Kaart / Slaap hier ; Feuerstein / Hotel of pension · 2,3 km van je route, de route gaat dan om / Kaart / Slaap hier ; Gasthof Alpenrose / Hotel of pension · 2,9 km van je route, de route gaat dan om / Kaart / Slaap hier ; Pension Nina / Hotel of pension · 3,0 km van je route, de route gaat dan om / Kaart / Slaap hier ; Gschnitzerhof / Hotel of pension · 3,1 km van je route, de route gaat dan om / Kaart / Slaap hier ; Haus Elke / Hotel of pension · 3,2 km van je route, de route gaat dan om / Kaart / Slaap hier ; Staat je plek er niet bij? Zoek hem hierboven op naam."
+  },
+  {
+   "name": "zoek_op_naam",
+   "ok": true,
+   "ms": 1207,
+   "info": "Neustift i. St. Klaus Äuele / Neustift im Stubaital, Tirol, Österreich · 2,5 km van je route, de route gaat dan om / Kaart / Slaap hier ; Neustift im Stubaital / Tirol, Österreich · 2,0 km van je route, de route gaat dan om / Kaart / Slaap hier ; Neustift i. St. Elferlifte / Neustift im Stubaital, Tirol, Österreich · 1,9 km van je route, de route gaat dan om / Kaart / Slaap hier ; Neustift i. St. Tschangelair / Neustift im Stubaital, Tirol, Österreich · 3,2 km van je route, de route gaat dan om / Kaart / Slaap hier"
+  },
+  {
+   "name": "zoek_sluiten",
+   "ok": true,
+   "ms": 60,
+   "info": "ok"
+  },
+  {
+   "name": "etappes_scroll",
+   "ok": true,
+   "ms": 4,
+   "info": "ok"
+  },
+  {
+   "name": "weer",
+   "ok": true,
+   "ms": 106,
+   "info": "Dag 1 | do 19 nov · 8,6 km | -1° / -5° | Sneeuw | Neerslag 4,6 mm · 90% | Windstoten 47 km/u | Zon op 07:23 | Zon onder 16:36 | vorst | sneeuw | op 2.324 m | Dag 2 | vr 20 nov · 9,8 km | -3° / -6° | Lichte sneeuw | Neerslag 2,3 mm · 41% | Windstoten 62 km/u | Zon op 07:25 | Zon onder 16:35 | harde windstoten | vorst | sneeuw | op 2.529 m | Dag 3 | za 21 nov · 14,4 km | -5° / -9° | Lichte sneeuw | "
+  },
+  {
+   "name": "kaart_dagen",
+   "ok": true,
+   "ms": 6062,
+   "info": "ok"
+  },
+  {
+   "name": "kaart_ingezoomd",
+   "ok": true,
+   "ms": 6020,
+   "info": "ok"
+  },
+  {
+   "name": "tik_naast_route",
+   "ok": true,
+   "ms": 5630,
+   "info": "antwoord na 1013 ms: Geen gemarkeerde route op dit punt. Tik precies op een gekleurde lijn."
+  },
+  {
+   "name": "hoogtetegel",
+   "ok": true,
+   "ms": 417,
+   "info": "tegel ok, hoogte 1253 tot 3166 m"
+  },
+  {
+   "name": "offline_klaarzetten",
+   "ok": true,
+   "ms": 254263,
+   "info": "254 s; {\"sketch\":{\"at\":1794931747325,\"n\":2729,\"sig\":\"4632:72963\",\"c\":true,\"part\":\"7 van 15\"},\"lijnen\":2729,\"hoogtelijnen\":1116,\"hoogtepunten\":51681,\"labels\":174,\"klassen\":[\"c1\",\"c5\",\"river\",\"path\",\"hard\",\"track\",\"stream\",\"lift\",\"major\",\"minor\",\"cliff\",\"lake\",\"ice\"]}"
+  },
+  {
+   "name": "schetskaart",
+   "ok": true,
+   "ms": 2645,
+   "info": "tekenen 140 ms"
+  },
+  {
+   "name": "schetskaart_dichtbij",
+   "ok": true,
+   "ms": 2568,
+   "info": "tekenen 65 ms"
+  },
+  {
+   "name": "schetskaart_overzicht",
+   "ok": true,
+   "ms": 2598,
+   "info": "ok"
+  },
+  {
+   "name": "onderweg",
+   "ok": true,
+   "ms": 3110,
+   "info": "Wandeling opnemen | Start wandeling | Waarschuw als ik van de route afwijk | Een web-app kan je GPS alleen volgen zolang hij open staat en het scherm aan is. Tijdens een opname houdt de app het scherm zelf aan; dat kost batterij."
+  }
+ ],
+ "requests": [
+  {
+   "host": "brouter.de",
+   "path": "/brouter",
+   "status": 200,
+   "ms": 846
+  },
+  {
+   "host": "api.open-meteo.com",
+   "path": "/v1/forecast",
+   "status": 200,
+   "ms": 77
+  },
+  {
+   "host": "api.open-meteo.com",
+   "path": "/v1/elevation",
+   "status": 200,
+   "ms": 59
+  },
+  {
+   "host": "photon.komoot.io",
+   "path": "/api/",
+   "status": 200,
+   "ms": 1160
+  },
+  {
+   "host": "nominatim.openstreetmap.org",
+   "path": "/search",
+   "status": 200,
+   "ms": 2349
+  },
+  {
+   "host": "hiking.waymarkedtrails.org",
+   "path": "/api/v1/list/search",
+   "status": 200,
+   "ms": 1072
+  },
+  {
+   "host": "overpass-api.de",
+   "path": "/api/interpreter",
+   "status": 502,
+   "ms": 582
+  },
+  {
+   "host": "",
+   "path": "http://localhost:8080/c24020d0-263d-4449-a06e-9e1299b7a20b",
+   "status": 200,
+   "ms": 8
+  },
+  {
+   "host": "",
+   "path": "http://localhost:8080/1f3ede1a-a8ad-48ec-8f56-09fc72bc364c",
+   "status": 200,
+   "ms": 3
+  },
+  {
+   "host": "",
+   "path": "http://localhost:8080/adeeb791-a1e9-4ba7-832f-b00066ba4eb9",
+   "status": 200,
+   "ms": 3
+  },
+  {
+   "host": "",
+   "path": "http://localhost:8080/356fd991-ce27-4922-8beb-955e0bd1edb3",
+   "status": 200,
+   "ms": 3
+  },
+  {
+   "host": "",
+   "path": "http://localhost:8080/d921cfc6-0248-487b-8d58-9ae232e217bb",
+   "status": 200,
+   "ms": 3
+  },
+  {
+   "host": "",
+   "path": "http://localhost:8080/0222a62b-0221-4521-8fd5-731733f02fa1",
+   "status": 200,
+   "ms": 3
+  },
+  {
+   "host": "photon.komoot.io",
+   "path": "/api/",
+   "status": 200,
+   "ms": 783
+  },
+  {
+   "host": "hiking.waymarkedtrails.org",
+   "path": "/api/v1/list/by_area",
+   "status": 200,
+   "ms": 682
+  },
+  {
+   "host": "hiking.waymarkedtrails.org",
+   "path": "/api/v1/details/relation/16464681",
+   "status": 200,
+   "ms": 542
+  },
+  {
+   "host": "hiking.waymarkedtrails.org",
+   "path": "/api/v1/details/relation/193073",
+   "status": 200,
+   "ms": 1466
+  },
+  {
+   "host": "hiking.waymarkedtrails.org",
+   "path": "/api/v1/list/search",
+   "status": 200,
+   "ms": 1204
+  },
+  {
+   "host": "hiking.waymarkedtrails.org",
+   "path": "/api/v1/details/relation/6560812",
+   "status": 200,
+   "ms": 195
+  },
+  {
+   "host": "hiking.waymarkedtrails.org",
+   "path": "/api/v1/details/relation/6560812",
+   "status": 200,
+   "ms": 549
+  },
+  {
+   "host": "hiking.waymarkedtrails.org",
+   "path": "/api/v1/details/relation/6560812/way-elevation",
+   "status": 200,
+   "ms": 547
+  },
+  {
+   "host": "hiking.waymarkedtrails.org",
+   "path": "/api/v1/list/by_area",
+   "status": 200,
+   "ms": 625
+  },
+  {
+   "host": "hiking.waymarkedtrails.org",
+   "path": "/api/v1/details/relation/6560812/way-elevation",
+   "status": 200,
+   "ms": 777
+  },
+  {
+   "host": "overpass-api.de",
+   "path": "/api/interpreter",
+   "status": 502,
+   "ms": 226
+  },
+  {
+   "host": "maps.mail.ru",
+   "path": "/osm/tools/overpass/api/interpreter",
+   "status": 504,
+   "ms": 1128
+  },
+  {
+   "host": "overpass.private.coffee",
+   "path": "/api/interpreter",
+   "status": "FAILED net::ERR_ABORTED",
+   "ms": 70017
+  },
+  {
+   "host": "overpass-api.de",
+   "path": "/api/interpreter",
+   "status": 200,
+   "ms": 35000
+  },
+  {
+   "host": "photon.komoot.io",
+   "path": "/reverse",
+   "status": 200,
+   "ms": 1348
+  },
+  {
+   "host": "photon.komoot.io",
+   "path": "/api/",
+   "status": 200,
+   "ms": 875
+  },
+  {
+   "host": "api.open-meteo.com",
+   "path": "/v1/forecast",
+   "status": 200,
+   "ms": 26
+  },
+  {
+   "host": "api.open-meteo.com",
+   "path": "/v1/forecast",
+   "status": 200,
+   "ms": 26
+  },
+  {
+   "host": "api.open-meteo.com",
+   "path": "/v1/forecast",
+   "status": 200,
+   "ms": 28
+  },
+  {
+   "host": "api.open-meteo.com",
+   "path": "/v1/forecast",
+   "status": 200,
+   "ms": 30
+  },
+  {
+   "host": "api.open-meteo.com",
+   "path": "/v1/forecast",
+   "status": 200,
+   "ms": 30
+  },
+  {
+   "host": "api.open-meteo.com",
+   "path": "/v1/forecast",
+   "status": 429,
+   "ms": 71
+  },
+  {
+   "host": "maps.mail.ru",
+   "path": "/osm/tools/overpass/api/interpreter",
+   "status": 504,
+   "ms": 45933
+  },
+  {
+   "host": "",
+   "path": "http://localhost:8080/34f31fbf-df8a-4142-9b27-a5abd781a520",
+   "status": 200,
+   "ms": 1
+  },
+  {
+   "host": "hiking.waymarkedtrails.org",
+   "path": "/api/v1/list/by_area",
+   "status": 200,
+   "ms": 987
+  },
+  {
+   "host": "maps.mail.ru",
+   "path": "/osm/tools/overpass/api/interpreter",
+   "status": 504,
+   "ms": 547
+  },
+  {
+   "host": "maps.mail.ru",
+   "path": "/osm/tools/overpass/api/interpreter",
+   "status": 504,
+   "ms": 549
+  },
+  {
+   "host": "overpass.private.coffee",
+   "path": "/api/interpreter",
+   "status": "FAILED net::ERR_ABORTED",
+   "ms": 69995
+  },
+  {
+   "host": "overpass-api.de",
+   "path": "/api/interpreter",
+   "status": 200,
+   "ms": 30862
+  },
+  {
+   "host": "overpass.private.coffee",
+   "path": "/api/interpreter",
+   "status": "FAILED net::ERR_ABORTED",
+   "ms": 59998
+  },
+  {
+   "host": "overpass-api.de",
+   "path": "/api/interpreter",
+   "status": 200,
+   "ms": 30883
+  },
+  {
+   "host": "maps.mail.ru",
+   "path": "/osm/tools/overpass/api/interpreter",
+   "status": 504,
+   "ms": 54214
+  },
+  {
+   "host": "overpass-api.de",
+   "path": "/api/interpreter",
+   "status": 200,
+   "ms": 38033
+  },
+  {
+   "host": "overpass-api.de",
+   "path": "/api/interpreter",
+   "status": 502,
+   "ms": 227
+  },
+  {
+   "host": "overpass-api.de",
+   "path": "/api/interpreter",
+   "status": 502,
+   "ms": 228
+  },
+  {
+   "host": "overpass.private.coffee",
+   "path": "/api/interpreter",
+   "status": "FAILED net::ERR_ABORTED",
+   "ms": 60000
+  },
+  {
+   "host": "overpass-api.de",
+   "path": "/api/interpreter",
+   "status": 200,
+   "ms": 29671
+  },
+  {
+   "host": "overpass-api.de",
+   "path": "/api/interpreter",
+   "status": 200,
+   "ms": 39537
+  },
+  {
+   "host": "overpass.private.coffee",
+   "path": "/api/interpreter",
+   "status": "FAILED net::ERR_ABORTED",
+   "ms": 60000
+  },
+  {
+   "host": "overpass-api.de",
+   "path": "/api/interpreter",
+   "status": 200,
+   "ms": 32064
+  },
+  {
+   "host": "overpass-api.de",
+   "path": "/api/interpreter",
+   "status": 200,
+   "ms": 36463
+  },
+  {
+   "host": "api.open-meteo.com",
+   "path": "/v1/forecast",
+   "status": 200,
+   "ms": 31
+  }
+ ],
+ "errors": [
+  "console: Failed to load resource: the server responded with a status of 502 ()",
+  "console: Failed to load resource: the server responded with a status of 502 ()",
+  "console: Failed to load resource: the server responded with a status of 504 (Gateway Time-out)",
+  "console: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+  "console: Failed to load resource: the server responded with a status of 504 (Gateway Timeout)",
+  "console: Failed to load resource: the server responded with a status of 504 (Gateway Time-out)",
+  "console: Failed to load resource: the server responded with a status of 504 (Gateway Time-out)",
+  "console: Failed to load resource: the server responded with a status of 504 (Gateway Timeout)",
+  "console: Failed to load resource: the server responded with a status of 502 ()",
+  "console: Failed to load resource: the server responded with a status of 502 ()"
+ ],
+ "tiles": {
+  "tile.waymarkedtrails.org 200": 81,
+  "a.tile.opentopomap.org 200": 33,
+  "c.tile.opentopomap.org 200": 26,
+  "b.tile.opentopomap.org 200": 33,
+  "tile.openstreetmap.org 200": 1,
+  "c.tile.opentopomap.org FAILED net::ERR_ABORTED": 5,
+  "b.tile.opentopomap.org FAILED net::ERR_ABORTED": 5,
+  "a.tile.opentopomap.org FAILED net::ERR_ABORTED": 4,
+  "tile.waymarkedtrails.org FAILED net::ERR_ABORTED": 10,
+  "s3.amazonaws.com 200": 15
+ },
+ "finished": "2026-11-17T16:09:19.310Z"
+}
