@@ -843,6 +843,8 @@ button{cursor:pointer;touch-action:manipulation}
 .sugg{display:grid;gap:8px;margin-top:8px}.sugg>div{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.sugg small{color:var(--muted)}
 .stop.none .tent{background:#b7791f}
 .poi.village{border-color:#6b6257;color:#6b6257}
+.ver{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:18px 2px 4px;color:var(--muted);font-size:13px}
+.ver2{margin:4px 2px 18px;color:var(--muted);font-size:12px}
 .find{margin-top:10px;padding:10px;border-radius:12px;background:var(--paper)}
 .find input{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:var(--card);color:var(--ink);-webkit-appearance:none;appearance:none}
 .find .rload{margin:10px 0 2px}.find .note{margin:8px 0 0}
@@ -1077,34 +1079,41 @@ const TDB=(()=>{let dbp=null;
 const haveKeys=new Set(),MAXTILES=9000;let fullWarned=false;
 TDB.keys().then(ks=>{(ks||[]).forEach(k=>haveKeys.add(k));if(curTab==='Tochten')renderTochten()});
 const fetchTile=(url,ms)=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);return fetch(url,{mode:'cors',signal:c.signal}).finally(()=>clearTimeout(t))};
+const TS={ok:0,cache:0,fb:0,fail:0,last:''};   // tellers voor deze sessie, te zien onder Tochten
 const CachedLayer=L.TileLayer.extend({
   createTile(coords,done){const img=document.createElement('img'),self=this;img.alt='';img.setAttribute('role','presentation');
-    const url=this.getTileUrl(coords),key=this.options.cid+'/'+this._getZoomForUrl()+'/'+coords.x+'/'+coords.y;let fin=false;
-    const ok=()=>{if(!fin){fin=true;self._fail=0;done(null,img)}},bad=()=>{if(!fin){fin=true;done(new Error('tegel'),img)}};
-    const guard=setTimeout(()=>{if(!fin){img.src='';bad()}},25000);   // vangnet: een tegel blijft nooit eeuwig laden
-    const plain=(tries)=>{img.onload=()=>{clearTimeout(guard);ok()};img.onerror=()=>{if(tries>0&&!fin)setTimeout(()=>plain(tries-1),1200);else{clearTimeout(guard);bad()}};img.src=tries<1?url+(url.includes('?')?'&':'?')+'r=1':url};
-    const show=src=>{img.onload=()=>{URL.revokeObjectURL(src);clearTimeout(guard);ok()};img.onerror=()=>{URL.revokeObjectURL(src);plain(1)};img.src=src};
+    const z=this._getZoomForUrl(),url=this.getTileUrl(coords),key=this.options.cid+'/'+z+'/'+coords.x+'/'+coords.y;let fin=false,timer=0;
+    const ok=()=>{if(!fin){fin=true;clearTimeout(timer);done(null,img)}},bad=()=>{if(!fin){fin=true;clearTimeout(timer);TS.fail++;done(new Error('tegel'),img)}};
+    const load=(src,ms,onFail,onOk)=>{clearTimeout(timer);img.onload=()=>{onOk&&onOk();ok()};img.onerror=()=>{if(!fin)onFail()};timer=setTimeout(()=>{if(!fin){img.onload=img.onerror=null;onFail()}},ms);img.src=src};
+    // Laatste redmiddel: dezelfde plek van de standaardkaart, zodat er nooit een grijs vlak blijft staan.
+    const fallback=why=>{TS.last=why;const fu=self.options.fallback;if(!fu||fin){bad();return}TS.fb++;self.fire('tilefallback');load(L.Util.template(fu,{z,x:coords.x,y:coords.y}),15000,bad)};
+    const plain=why=>load(url,8000,()=>fallback(why),()=>{TS.ok++});
     TDB.get(key).then(hit=>{if(fin)return;
-      if(hit&&hit.b){haveKeys.add(key);show(URL.createObjectURL(new Blob([hit.b],{type:hit.m||'image/png'})));return}
-      if(self.options.corsOk===false||!HOSTED){plain(1);return}
-      fetchTile(url,10000).then(r=>{if(!r.ok)throw new Error('status '+r.status);return r.blob()}).then(bl=>{
+      if(hit&&hit.b){haveKeys.add(key);const u=URL.createObjectURL(new Blob([hit.b],{type:hit.m||'image/png'}));load(u,8000,()=>{URL.revokeObjectURL(u);plain('bewaarde tegel onleesbaar')},()=>{URL.revokeObjectURL(u);TS.cache++});return}
+      if(self.options.corsOk===false||!HOSTED){plain('');return}
+      fetchTile(url,7000).then(r=>{if(!r.ok)throw new Error('status '+r.status);return r.blob()}).then(bl=>{if(fin)return;
         if(haveKeys.size<MAXTILES)bl.arrayBuffer().then(b=>{TDB.put(key,{b,m:bl.type,t:Date.now()});haveKeys.add(key)}).catch(()=>{});
         else if(!fullWarned){fullWarned=true;toast('De kaartopslag is vol. Wis bewaarde kaartdelen onder Tochten om nieuwe te bewaren.')}
-        show(URL.createObjectURL(bl))
-      }).catch(e=>{if(fin)return;const maybeCors=e&&e.name==='TypeError';plain(1);if(maybeCors){const o=img.onload;img.onload=()=>{self._cors=(self._cors||0)+1;if(self._cors>=3)self.options.corsOk=false;o()}}})});   // lukt de gewone afbeelding wel, dan staat de kaartdienst opslaan niet toe
+        const u=URL.createObjectURL(bl);load(u,8000,()=>{URL.revokeObjectURL(u);fallback('tegel onleesbaar')},()=>{URL.revokeObjectURL(u);TS.ok++})
+      }).catch(e=>{if(fin)return;const why=e&&e.name==='AbortError'?'geen antwoord binnen 7 s':e&&/status/.test(e.message||'')?e.message:'verbinding mislukt';
+        if(/status/.test(why)){fallback(why);return}
+        // misschien staat de dienst opslaan niet toe: probeer de gewone afbeelding, lukt dat drie keer dan voortaan direct
+        load(url,8000,()=>fallback(why),()=>{TS.ok++;self._cors=(self._cors||0)+1;if(self._cors>=3)self.options.corsOk=false})})});
     return img}});
 
 /* ---------- kaart ---------- */
 const map=L.map('map',{zoomControl:false,maxZoom:19}).setView([46.9,10.4],6);
 let bases={},terr=[];
-let autoOsm=false;
+let autoOsm=false,tfb=[];
+// Valt de topografische kaart herhaaldelijk terug, toon dan meteen helemaal de standaardkaart.
+function onTopoFb(){const n=Date.now();tfb=tfb.filter(t=>n-t<30000);tfb.push(n);if(tfb.length>=4&&!autoOsm&&!sketchOn()&&(store.base||'topo')==='topo'){tfb=[];autoOsm=true;applyLayers();toast('De topografische kaart reageert nu niet. Je ziet de standaardkaart. Via Lagen schakel je terug.',6500)}}
 function onTileErr(e){const n=Date.now();terr=terr.filter(t=>n-t<20000);terr.push(n);if(terr.length<6||sketchOn())return;terr=[];
   if(navigator.onLine!==false&&!autoOsm&&(store.base||'topo')==='topo'&&e&&e.target===bases.topo){autoOsm=true;applyLayers();toast('De topografische kaart reageert nu niet. Je ziet tijdelijk de standaardkaart. Via Lagen schakel je terug.',6500);return}
   if(trip.sketch){autoSketch=true;applyLayers();toast('De kaart laadt niet. Je ziet nu de offline schetskaart. Via Lagen schakel je terug.',6500)}}
 function makeBases(){Object.values(bases).forEach(l=>map.removeLayer(l));const sh=!!store.sharp; // scherp: tegels één niveau dieper, half zo groot getekend
-  bases={topo:new CachedLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{cid:'topo',maxNativeZoom:sh?16:17,maxZoom:sh?20:19,detectRetina:sh,subdomains:'abc',attribution:'© OpenStreetMap, SRTM · OpenTopoMap (CC-BY-SA)'}),
+  bases={topo:new CachedLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{cid:'topo',maxNativeZoom:sh?16:17,maxZoom:sh?20:19,detectRetina:sh,subdomains:'abc',fallback:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',attribution:'© OpenStreetMap, SRTM · OpenTopoMap (CC-BY-SA)'}),
     osm:new CachedLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{cid:'osm',maxNativeZoom:sh?18:19,maxZoom:sh?20:19,detectRetina:sh,attribution:'© OpenStreetMap'})};
-  Object.values(bases).forEach(l=>l.on('tileerror',onTileErr))}
+  Object.values(bases).forEach(l=>l.on('tileerror',onTileErr));bases.topo.on('tilefallback',onTopoFb)}
 makeBases();map.attributionControl.setPrefix('');L.control.scale({imperial:false,position:'bottomleft',maxWidth:90}).addTo(map);
 const trails=L.tileLayer('https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png',{maxZoom:18,opacity:.85,attribution:'Waymarked Trails'});
 let SK=null,autoSketch=false;
@@ -1699,6 +1708,13 @@ map.on('moveend',()=>{if(missOn){clearTimeout(missT);missT=setTimeout(drawMissin
 /* ---------- tochten, notities en GPX ---------- */
 let delArm=null,diag=null;
 function tripSummary(t){let d=0;(t.legs||[]).forEach(l=>{for(let i=1;i<l.coords.length;i++)d+=hav(l.coords[i-1],l.coords[i])});const n=(t.breaks||[]).length+1;return d?fKm(d)+' km · '+n+(n===1?' dag':' dagen'):'nog geen route'}
+const APPVER='41 (17-11-2026)';
+async function checkUpdate(){const b=$('#vCheck');if(b){b.disabled=true;b.textContent='Bezig…'}
+  try{const t=await(await fetch('./?v='+Date.now(),{cache:'no-store'})).text(),m=t.match(/const APPVER='([^']+)'/);
+    if(m&&m[1]!==APPVER){try{const r=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();if(r)await r.update()}catch(e){}toast('Nieuwe versie gevonden ('+m[1]+'). De app laadt opnieuw.',2500);setTimeout(()=>location.reload(),1200);return}
+    toast(m?'Je hebt de nieuwste versie.':'Kon de versie niet controleren.',3000)}
+  catch(e){toast('Controleren lukt alleen met verbinding.',3000)}
+  if(b){b.disabled=false;b.textContent='Zoek naar update'}}
 function renderTochten(){
   const el=$('#pTochten'),sc=el.scrollTop;let h='<h1>Tochten</h1><p class="sub">Je tochten staan op dit toestel. Exporteer een GPX als reservekopie of voor je horloge.</p>';
   h+='<div class="card"><label class="field">Naam van deze tocht<input type="text" id="tName" maxlength="60" value="'+esc(trip.name)+'"></label>';
@@ -1725,7 +1741,10 @@ function renderTochten(){
   if(diag)h+='<ul class="list checks" style="margin-top:8px">'+diag.map(d=>'<li><span>'+d[0]+'</span><span class="'+(d[1]?'ok':'bad')+'">'+d[2]+'</span></li>').join('')+'</ul>';
   h+='<p class="note">'+(HOSTED?'De app draait op '+esc(location.host)+'.':'De app is geopend als los bestand. Dat verklaart het als diensten hieronder geblokkeerd zijn.')+'</p></div>';
   h+='<h2>Op je beginscherm</h2><div class="card"><p style="margin:0">Open deze pagina in Safari, tik op Deel en kies <b>Zet op beginscherm</b>. De app opent daarna schermvullend en start ook zonder verbinding.</p></div>';
+  h+='<div class="ver"><span>Versie '+APPVER+'</span><button class="btn small" id="vCheck">Zoek naar update</button></div>';
+  if(TS.ok+TS.cache+TS.fb+TS.fail)h+='<p class="ver2">Kaarttegels deze sessie: '+TS.ok+' geladen, '+TS.cache+' uit opslag'+(TS.fb?', '+TS.fb+' via standaardkaart':'')+(TS.fail?', '+TS.fail+' mislukt':'')+(TS.last?' · laatste probleem: '+esc(TS.last):'')+'</p>';
   el.innerHTML=h;el.scrollTop=sc;
+  $('#vCheck').onclick=checkUpdate;
   $('#tName').oninput=e=>{trip.name=e.target.value||'Naamloze tocht';save();const b=el.querySelector('.trip.cur b');if(b)b.textContent=trip.name};
   $('#tNotes').oninput=e=>{trip.notes=e.target.value;save()};$('#tDone').onchange=e=>{trip.done=e.target.checked;save();renderTochten()};
   el.querySelectorAll('[data-star]').forEach(b=>b.onclick=()=>{const v=+b.dataset.star;trip.stars=trip.stars===v?0:v;save();renderTochten()});
