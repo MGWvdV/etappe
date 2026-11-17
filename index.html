@@ -1079,7 +1079,7 @@ const TDB=(()=>{let dbp=null;
 const haveKeys=new Set(),MAXTILES=9000;let fullWarned=false;
 TDB.keys().then(ks=>{(ks||[]).forEach(k=>haveKeys.add(k));if(curTab==='Tochten')renderTochten()});
 const fetchTile=(url,ms)=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);return fetch(url,{mode:'cors',signal:c.signal}).finally(()=>clearTimeout(t))};
-const TS={ok:0,cache:0,fb:0,fail:0,saved:0,last:''};   // tellers voor deze sessie, te zien onder Tochten
+const TS={ok:0,cache:0,fb:0,fail:0,saved:0,last:''};let netOk=false,blockWarned=false;   // tellers voor deze sessie, te zien onder Tochten
 // Bewaren gebeurt los van het tonen: hooguit twee tegels tegelijk, en alleen als de kaart niet druk aan het laden is.
 // Bewaren gebeurt los van het tonen, vanuit de al geladen afbeelding: één download per tegel, één tegel tegelijk.
 const saveQ=[];let saving=false,saveCv=null;
@@ -1103,11 +1103,12 @@ const CachedLayer=L.TileLayer.extend({
       TDB.get(key).then(hit=>{if(fin)return;if(!hit||!hit.b){fallback(why);return}const u=URL.createObjectURL(new Blob([hit.b],{type:hit.m||'image/png'}));load(u,8000,()=>{URL.revokeObjectURL(u);fallback(why)},()=>{URL.revokeObjectURL(u);TS.cache++})})};
     const why=()=>navigator.onLine===false?'offline':'geen antwoord of fout van de kaartdienst';
     const net=self.options.corsOk!==false&&HOSTED;
-    if(navigator.onLine===false&&haveKeys.has(key))fromStore('offline');
-    else load(url,12000,()=>{if(fin)return;if(net&&navigator.onLine!==false){
+    const fromNet=()=>load(url,12000,()=>{if(fin)return;if(net&&navigator.onLine!==false){
         // misschien weigert de dienst het bewaren (CORS): nog één keer als gewone afbeelding
         load(url+(url.includes('?')?'&':'?')+'p=1',10000,()=>fromStore(why()),()=>{TS.ok++;self._cors=(self._cors||0)+1;if(self._cors>=3)self.options.corsOk=false})}
-      else fromStore(why())},()=>{TS.ok++;if(net)queueSave(key,img)},net);
+      else fromStore(why())},()=>{TS.ok++;netOk=true;if(net)queueSave(key,img)},net);
+    if(!haveKeys.has(key)){fromNet();return img}
+    TDB.get(key).then(hit=>{if(fin)return;if(!hit||!hit.b){fromNet();return}const u=URL.createObjectURL(new Blob([hit.b],{type:hit.m||'image/png'}));load(u,8000,()=>{URL.revokeObjectURL(u);fromNet()},()=>{URL.revokeObjectURL(u);TS.cache++})});
     return img},
   _abortLoading(){for(const k in this._tiles){const t=this._tiles[k];if(t.coords.z!==this._tileZoom&&t.el._cancel)t.el._cancel()}L.TileLayer.prototype._abortLoading.call(this)}});
 
@@ -1118,7 +1119,7 @@ let bases={},terr=[];
 let autoOsm=false,tfb=[];
 // Valt de topografische kaart herhaaldelijk terug, toon dan meteen helemaal de standaardkaart.
 function onTopoFb(){const n=Date.now();tfb=tfb.filter(t=>n-t<30000);tfb.push(n);if(tfb.length>=4&&!autoOsm&&!sketchOn()&&(store.base||'topo')==='topo'){tfb=[];autoOsm=true;applyLayers();toast('De topografische kaart reageert nu niet. Je ziet de standaardkaart. Via Lagen schakel je terug.',6500)}}
-function onTileErr(e){const n=Date.now();terr=terr.filter(t=>n-t<20000);terr.push(n);if(terr.length<6||sketchOn())return;terr=[];
+function onTileErr(e){if(!netOk&&!blockWarned&&TS.fail>=12&&navigator.onLine!==false){blockWarned=true;toast('De kaart laadt op dit netwerk niet. Sommige wifi-netwerken blokkeren kaartdiensten; probeer mobiele data.',8000)}const n=Date.now();terr=terr.filter(t=>n-t<20000);terr.push(n);if(terr.length<6||sketchOn())return;terr=[];
   if(navigator.onLine!==false&&!autoOsm&&(store.base||'topo')==='topo'&&e&&e.target===bases.topo){autoOsm=true;applyLayers();toast('De topografische kaart reageert nu niet. Je ziet tijdelijk de standaardkaart. Via Lagen schakel je terug.',6500);return}
   if(trip.sketch){autoSketch=true;applyLayers();toast('De kaart laadt niet. Je ziet nu de offline schetskaart. Via Lagen schakel je terug.',6500)}}
 function makeBases(){Object.values(bases).forEach(l=>map.removeLayer(l));const sh=!!store.sharp; // scherp: tegels één niveau dieper, half zo groot getekend
@@ -1719,7 +1720,7 @@ map.on('moveend',()=>{if(missOn){clearTimeout(missT);missT=setTimeout(drawMissin
 /* ---------- tochten, notities en GPX ---------- */
 let delArm=null,diag=null;
 function tripSummary(t){let d=0;(t.legs||[]).forEach(l=>{for(let i=1;i<l.coords.length;i++)d+=hav(l.coords[i-1],l.coords[i])});const n=(t.breaks||[]).length+1;return d?fKm(d)+' km · '+n+(n===1?' dag':' dagen'):'nog geen route'}
-const APPVER='43 (17-11-2026)';
+const APPVER='44 (17-11-2026)';
 async function checkUpdate(){const b=$('#vCheck');if(b){b.disabled=true;b.textContent='Bezig…'}
   try{const t=await(await fetch('./?v='+Date.now(),{cache:'no-store'})).text(),m=t.match(/const APPVER='([^']+)'/);
     if(m&&m[1]!==APPVER){try{const r=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();if(r)await r.update()}catch(e){}toast('Nieuwe versie gevonden ('+m[1]+'). De app laadt opnieuw.',2500);setTimeout(()=>location.reload(),1200);return}
