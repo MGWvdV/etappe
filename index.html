@@ -1273,8 +1273,8 @@ let poiZ=map.getZoom();map.on('zoomend',()=>{const z=map.getZoom(),band=v=>v<10?
 const SKS={c1:{color:'#c9a878',weight:.7,opacity:.9},c5:{color:'#a97f45',weight:1.3},lake:{fill:true,fillColor:'#a9cfe8',fillOpacity:1,color:'#6aa3cc',weight:1},ice:{fill:true,fillColor:'#e9f4fb',fillOpacity:1,color:'#9cc7e4',weight:1,dashArray:'3 3'},
   river:{color:'#5b9bd0',weight:3},stream:{color:'#6aa9d8',weight:1.4},cliff:{color:'#8a8378',weight:2,dashArray:'2 3'},minor:{color:'#b5afa2',weight:2.4},majorC:{color:'#9b8f6f',weight:5},major:{color:'#f3d36b',weight:3},
   track:{color:'#8b6b3f',weight:2},path:{color:'#4d3b2a',weight:1.7,dashArray:'5 4'},hard:{color:'#c21f1f',weight:2,dashArray:'2 5'},lift:{color:'#333',weight:1.2,dashArray:'10 4'},rail:{color:'#444',weight:2.4,dashArray:'7 5'}};
-const SKORDER=[['lake',0],['ice',1],['c1',2],['c5',1],['river',0],['stream',1],['cliff',2],['minor',2],['majorC',0],['major',0],['track',1],['path',1],['hard',1],['lift',1],['rail',0]];
-const skBandOf=z=>z<10?0:z<13?1:2;let skBand=-1;
+const SKORDER=[['lake',0],['ice',1],['c1',2],['c5',1.5],['river',0],['stream',1],['cliff',2],['minor',2],['majorC',0],['major',0],['track',1],['path',1],['hard',1],['lift',1],['rail',0]];
+const skBandOf=z=>z<10?0:z<12?1:z<13?1.5:2;let skBand=-1;
 function wayClass(t){const h=t.highway;
   if(h){if(/^(path|footway|steps|bridleway|via_ferrata)$/.test(h))return h==='via_ferrata'||/^(demanding_mountain_hiking|alpine_hiking|demanding_alpine_hiking|difficult_alpine_hiking)$/.test(t.sac_scale||'')?'hard':'path';
     if(h==='track')return'track';if(/^(motorway|trunk|primary|secondary|tertiary)(_link)?$/.test(h))return'major';
@@ -1294,13 +1294,13 @@ function drawSketch(){gSketch.clearLayers();gLabels.clearLayers();if(!sketchOn()
 function drawLabels(){gLabels.clearLayers();if(!sketchOn()||!SK)return;const z=map.getZoom(),band=skBandOf(z),placed=[];
   const pri=p=>p.k==='ele'?9:p.k==='place'?({city:0,town:1,village:2,hamlet:4}[p.p]??3):5-(p.e||0)/10000;
   const vb=map.getBounds().pad(.6);
-  SK.pts.filter(p=>p.k==='place'?(band>0||p.p!=='hamlet'):p.k==='ele'?(band>1&&vb.contains([p.lat,p.lng])):band>0).sort((a,b)=>pri(a)-pri(b)).forEach(p=>{
+  SK.pts.filter(p=>p.k==='place'?(band>0||p.p!=='hamlet'):p.k==='ele'?(band>=2&&vb.contains([p.lat,p.lng])):band>0).sort((a,b)=>pri(a)-pri(b)).forEach(p=>{
     const q=map.project([p.lat,p.lng],z),w=((p.n||'').length+(p.e?6:0)+2)*6.6+10;
     if(placed.some(o=>Math.abs(o.x-q.x)<(o.w+w)/2&&Math.abs(o.y-q.y)<17))return;placed.push({x:q.x,y:q.y,w});
     const html=p.k==='ele'?'<span class="ske">'+p.n+'</span>':p.k==='place'?'<span class="skp '+p.p+'">'+esc(p.n)+'</span>':'<span>'+(p.k==='peak'?'▲ ':'')+esc(p.n||'')+(p.e?' '+fM(p.e):'')+'</span>';
     L.marker([p.lat,p.lng],{icon:L.divIcon({className:'sklab',html,iconSize:[0,0]}),interactive:false,keyboard:false}).addTo(gLabels)})}
 map.on('zoomend',()=>{if(!sketchOn()||!SK)return;if(skBandOf(map.getZoom())!==skBand)drawSketch();else drawLabels()});
-let labT;map.on('moveend',()=>{if(sketchOn()&&SK&&skBandOf(map.getZoom())>1){clearTimeout(labT);labT=setTimeout(drawLabels,250)}});
+let labT;map.on('moveend',()=>{if(sketchOn()&&SK&&skBandOf(map.getZoom())>=2){clearTimeout(labT);labT=setTimeout(drawLabels,250)}});
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 /* ---------- hoogtelijnen uit open hoogtetegels (Terrarium, AWS Open Data) ---------- */
 const DEMZ=12;
@@ -1450,7 +1450,7 @@ function planByHours(H){if(!TR)return;const C=sleepers().filter(p=>p.d>1500&&p.d
     for(const p of ahead){if(Tat(p.d)-Tat(pos)<=H)pick=p;else break}
     if(!pick&&ahead[0]&&Tat(ahead[0].d)-Tat(pos)<=H*1.6)pick=ahead[0];
     if(pick){br.push(pick.d);pos=pick.d;continue}
-    const target=Tat(pos)+H;let i=idxAt(pos);while(i<TR.T.length-1&&TR.T[i]<target)i++;if(TR.total-TR.D[i]<1500)break;br.push(TR.D[i]);pos=TR.D[i];own++}
+    const rest=end-Tat(pos),target=Tat(pos)+rest/Math.ceil(rest/H);let i=idxAt(pos);while(i<TR.T.length-1&&TR.T[i]<target)i++;if(TR.total-TR.D[i]<1500)break;br.push(TR.D[i]);pos=TR.D[i];own++}
   trip.breaks=br;trip.planH=H;refresh();
   toast(br.length?(br.length+1)+' dagen van ongeveer '+H+' uur'+(C.length?(own?'. Op '+own+(own===1?' plek':' plekken')+' is geen slaapplek bekend; zoek daar zelf iets.':', steeds tot een slaapplek.'):'. Zoek hutten om de dagen bij een slaapplek te laten eindigen.'):'De hele tocht past in één dag van '+H+' uur.',5200)}
 function spark(i,j){if(!TR.hasEle||j-i<2)return'';const W=300,H=30,st=Math.max(1,Math.floor((j-i)/70));let lo=Infinity,hi=-Infinity;for(let k=i;k<=j;k++){if(TR.E[k]<lo)lo=TR.E[k];if(TR.E[k]>hi)hi=TR.E[k]}if(hi-lo<30)hi=lo+30;
@@ -1463,12 +1463,16 @@ function showOnMap(lat,lng,name){if(!wide())showTab('Kaart');map.setView([lat,ln
 let FIND=null;
 async function findRun(){const F=FIND;if(!F||!TR)return;const a=TR.P[idxAt(F.d)];F.busy=true;F.err=null;F.res=null;renderEtappes();
   try{let res;
-    if(F.q){res=(await geocode(F.q,{lat:a[0],lng:a[1]})).map(x=>({n:String(x.name).slice(0,60),sub:x.sub,t:'sleep',lat:r5(x.lat),lng:r5(x.lng),byName:true}))}
-    else{const j=await overpassFast('[out:json][timeout:25];nwr["tourism"~"^(alpine_hut|wilderness_hut|camp_site|hostel|guest_house|hotel)$"](around:4000,'+a[0].toFixed(4)+','+a[1].toFixed(4)+');out center tags 80;',32000);
-      res=[];(j.elements||[]).forEach(e=>{const t=e.tags||{},ty=poiType(t),lat=e.lat!=null?e.lat:e.center&&e.center.lat,lng=e.lon!=null?e.lon:e.center&&e.center.lon;if(!ty||lat==null||!t.name)return;
-        res.push({n:t.name.slice(0,60),t:ty,lat:r5(lat),lng:r5(lng),ele:isFinite(parseFloat(t.ele))?Math.round(parseFloat(t.ele)):null,web:safeUrl(t.website||t['contact:website']),tel:(t.phone||t['contact:phone']||'').slice(0,30)||null})})}
+    if(F.q){res=(await geocode(F.q,{lat:a[0],lng:a[1]})).map(x=>{const ty=x.ok==='tourism'?poiType({tourism:x.ov}):null;return{n:String(x.name).slice(0,60),sub:x.sub,t:ty||'sleep',known:!!ty,lat:r5(x.lat),lng:r5(x.lng),byName:true}})}
+    else{res=[];
+      // Eerst de snelle zoekdienst; de trage kaartdienst alleen als die niets oplevert.
+      try{const r=await fetchT('https://photon.komoot.io/reverse?lat='+a[0].toFixed(4)+'&lon='+a[1].toFixed(4)+'&radius=4&limit=40&osm_tag=tourism:alpine_hut&osm_tag=tourism:wilderness_hut&osm_tag=tourism:hotel&osm_tag=tourism:guest_house&osm_tag=tourism:hostel&osm_tag=tourism:camp_site',9000);if(!r.ok)throw 0;
+        ((await r.json()).features||[]).forEach(x=>{const p=x.properties||{},ty=p.osm_key==='tourism'?poiType({tourism:p.osm_value}):null;if(!ty||!p.name||!x.geometry)return;res.push({n:String(p.name).slice(0,60),t:ty,lat:r5(x.geometry.coordinates[1]),lng:r5(x.geometry.coordinates[0])})})}catch(e){}
+      if(!res.length){const j=await overpassFast('[out:json][timeout:25];nwr["tourism"~"^(alpine_hut|wilderness_hut|camp_site|hostel|guest_house|hotel)$"](around:4000,'+a[0].toFixed(4)+','+a[1].toFixed(4)+');out center tags 80;',32000);
+        (j.elements||[]).forEach(e=>{const t=e.tags||{},ty=poiType(t),lat=e.lat!=null?e.lat:e.center&&e.center.lat,lng=e.lon!=null?e.lon:e.center&&e.center.lon;if(!ty||lat==null||!t.name)return;
+          res.push({n:t.name.slice(0,60),t:ty,lat:r5(lat),lng:r5(lng),ele:isFinite(parseFloat(t.ele))?Math.round(parseFloat(t.ele)):null,web:safeUrl(t.website||t['contact:website']),tel:(t.phone||t['contact:phone']||'').slice(0,30)||null})})}}
     res.forEach(r=>{r.off=Math.round(nearest([r.lat,r.lng]).d);r.da=Math.round(hav(a,[r.lat,r.lng]))});
-    res=res.filter(r=>r.off<15000).sort((x,y)=>x.da-y.da).filter((r,i,A)=>!A.slice(0,i).some(o=>o.n===r.n&&hav([o.lat,o.lng],[r.lat,r.lng])<150)).slice(0,10);
+    res=res.filter(r=>r.off<15000&&(F.q||r.da<4500)).sort((x,y)=>(F.q?(y.known?1:0)-(x.known?1:0):0)||x.da-y.da).filter((r,i,A)=>!A.slice(0,i).some(o=>o.n===r.n&&hav([o.lat,o.lng],[r.lat,r.lng])<150)).slice(0,10);
     if(FIND!==F)return;F.res=res;F.busy=false}
   catch(e){if(FIND!==F)return;F.busy=false;F.err=navigator.onLine===false?'Je bent offline. Zoeken kan alleen met verbinding.':'Zoeken lukte nu niet. Probeer het zo opnieuw, of zoek op naam.'}
   if(curTab==='Etappes')renderEtappes()}
@@ -1480,7 +1484,7 @@ function findHtml(){const F=FIND;let h='<div class="find"><form class="row" id="
   if(F.busy)h+='<span class="rload"><i></i><span>'+(F.q?'Zoeken naar '+esc(F.q):'Slaapplekken binnen 4 km zoeken')+'</span></span>';
   else if(F.err)h+='<p class="note">'+F.err+'</p>';
   else if(F.res&&!F.res.length)h+='<p class="note">'+(F.q?'Niets gevonden voor '+esc(F.q)+' in de buurt van je route.':'Binnen 4 km van dit punt is geen hut, hotel of camping bekend. Zoek op naam, of schuif het eindpunt van de dag op.')+'</p>';
-  else if(F.res)h+=F.res.map((r,i)=>'<div class="cand"><span class="poi '+r.t+'"><svg viewBox="0 0 24 24"><path d="'+PT[r.t][1]+'"/></svg></span><span class="grow"><b>'+esc(r.n)+'</b><small>'+(r.byName?(r.sub?esc(r.sub)+' · ':''):PT[r.t][0]+' · ')+(r.off<=80?'aan je route':(r.off>=1000?fKm(r.off)+' km':fM(r.off)+' m')+' van je route')+(r.off>350?', de route gaat dan om':'')+'</small></span><button class="btn small" data-pin="'+i+'">Kaart</button><button class="btn small primary" data-pick="'+i+'">Slaap hier</button></div>').join('')+(F.q?'':'<p class="note">Staat je plek er niet bij? Zoek hem hierboven op naam.</p>');
+  else if(F.res)h+=F.res.map((r,i)=>'<div class="cand"><span class="poi '+r.t+'"><svg viewBox="0 0 24 24"><path d="'+PT[r.t][1]+'"/></svg></span><span class="grow"><b>'+esc(r.n)+'</b><small>'+(r.byName&&!r.known?(r.sub?esc(r.sub)+' · ':''):PT[r.t][0]+' · ')+(r.off<=80?'aan je route':(r.off>=1000?fKm(r.off)+' km':fM(r.off)+' m')+' van je route')+(r.off>350?', de route gaat dan om':'')+'</small></span><button class="btn small" data-pin="'+i+'">Kaart</button><button class="btn small primary" data-pick="'+i+'">Slaap hier</button></div>').join('')+(F.q?'':'<p class="note">Staat je plek er niet bij? Zoek hem hierboven op naam.</p>');
   return h+'<button class="btn small" id="fClose" style="margin-top:8px">Sluiten</button></div>'}
 function renderEtappes(){
   const el=$('#pEtappes'),keepOpen={};el.querySelectorAll('details[id]').forEach(d=>keepOpen[d.id]=d.open);const sc=el.scrollTop;
@@ -1863,7 +1867,7 @@ let viewT;map.on('moveend',()=>{clearTimeout(viewT);viewT=setTimeout(()=>{const 
 /* ---------- plaatsen zoeken ---------- */
 async function geocode(q,at){const c=at||map.getCenter();
   try{const r=await fetchT('https://photon.komoot.io/api/?q='+encodeURIComponent(q)+'&limit=6&lat='+c.lat.toFixed(3)+'&lon='+c.lng.toFixed(3),10000);if(!r.ok)throw 0;
-    return((await r.json()).features||[]).map(x=>{const p=x.properties||{};return{name:p.name||p.street||q,sub:[p.city!==p.name?p.city:'',p.state,p.country].filter(Boolean).join(', '),lat:x.geometry.coordinates[1],lng:x.geometry.coordinates[0],big:p.type==='city'||p.osm_value==='city'}})}
+    return((await r.json()).features||[]).map(x=>{const p=x.properties||{};return{name:p.name||p.street||q,sub:[p.city!==p.name?p.city:'',p.state,p.country].filter(Boolean).join(', '),lat:x.geometry.coordinates[1],lng:x.geometry.coordinates[0],big:p.type==='city'||p.osm_value==='city',ok:p.osm_key,ov:p.osm_value}})}
   catch(e){const r=await fetchT('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&q='+encodeURIComponent(q),10000);if(!r.ok)throw new Error('zoeken');
     return(await r.json()).map(x=>{const parts=String(x.display_name||q).split(', ');return{name:parts[0],sub:parts.slice(1).join(', '),lat:+x.lat,lng:+x.lon,big:x.addresstype==='city'||x.type==='city'}})}}
 $('#searchform').onsubmit=async e=>{e.preventDefault();const q=$('#q').value.trim(),box=$('#results');if(!q)return;$('#q').blur();
