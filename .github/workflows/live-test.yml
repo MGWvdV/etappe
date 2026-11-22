@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - run: npm i --no-save playwright@1.48.2 http-server@14.1.1
-      - run: npx playwright install --with-deps chromium webkit
+      - run: if [ ! -f .ci/probe-only ]; then npx playwright install --with-deps chromium webkit; fi
       - name: Run
         run: |
           npx http-server . -p 8080 -s -c-1 &
