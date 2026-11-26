@@ -899,6 +899,7 @@ details summary{cursor:pointer;font-weight:600;padding:4px 0}
 #tabs svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #tabs button[aria-selected="true"]{color:var(--pine);font-weight:700}
 
+.tact{background:none;border:0;color:inherit;font:inherit;font-weight:700;text-decoration:underline;margin-left:10px;padding:4px 0;cursor:pointer}
 #toast{position:absolute;z-index:950;left:16px;right:16px;bottom:16px;background:var(--ink);color:var(--paper);border-radius:12px;padding:11px 14px;font-size:14px;display:none;box-shadow:var(--shadow)}
 
 /* kaartmarkeringen */
@@ -1054,7 +1055,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 const safeUrl=u=>/^https?:\/\//i.test(u||'')?u:null;
 function hav(a,b){const R=6371000,t=Math.PI/180,dl=(b[0]-a[0])*t,dn=(b[1]-a[1])*t;
   const s=Math.sin(dl/2)**2+Math.cos(a[0]*t)*Math.cos(b[0]*t)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(s))}
-let toastT;function toast(msg,ms=3600){const t=$('#toast');t.textContent=msg;t.style.bottom=(curTab==='Kaart'?sheetH()+12:16)+'px';t.style.display='block';clearTimeout(toastT);toastT=setTimeout(()=>t.style.display='none',ms)}
+let toastT;function toast(msg,ms=3600,act){const t=$('#toast');t.textContent=msg;if(act){const b=document.createElement('button');b.className='tact';b.textContent=act.label;b.onclick=e=>{e.stopPropagation();t.style.display='none';act.fn()};t.appendChild(b)}t.style.bottom=(curTab==='Kaart'?sheetH()+12:16)+'px';t.style.display='block';clearTimeout(toastT);toastT=setTimeout(()=>t.style.display='none',ms)}
 const HOSTED=/^https?:$/.test(location.protocol);
 let routesOpen=false;var nav={on:false,i:null};
 function sheetH(){const e=typeof nav!=='undefined'&&nav.on?$('#navBar'):routesOpen?$('#pRoutes'):$('#sheet');return e?e.offsetHeight:0}
@@ -1720,7 +1721,7 @@ map.on('moveend',()=>{if(missOn){clearTimeout(missT);missT=setTimeout(drawMissin
 /* ---------- tochten, notities en GPX ---------- */
 let delArm=null,diag=null;
 function tripSummary(t){let d=0;(t.legs||[]).forEach(l=>{for(let i=1;i<l.coords.length;i++)d+=hav(l.coords[i-1],l.coords[i])});const n=(t.breaks||[]).length+1;return d?fKm(d)+' km · '+n+(n===1?' dag':' dagen'):'nog geen route'}
-const APPVER='45 (22-11-2026)';
+const APPVER='46 (26-11-2026)';
 async function checkUpdate(){const b=$('#vCheck');if(b){b.disabled=true;b.textContent='Bezig…'}
   try{const t=await(await fetch('./?v='+Date.now(),{cache:'no-store'})).text(),m=t.match(/const APPVER='([^']+)'/);
     if(m&&m[1]!==APPVER){try{const r=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();if(r)await r.update()}catch(e){}toast('Nieuwe versie gevonden ('+m[1]+'). De app laadt opnieuw.',2500);setTimeout(()=>location.reload(),1200);return}
@@ -1881,7 +1882,7 @@ function renderRoutes(){const el=$('#rBody');let h='';
     if(RL.items.length)h+='<p class="note" style="margin:10px 0 8px">'+list.length+(list.length===1?' route':' routes')+'. Tik op een route om hem op de kaart te zien.</p>';
     h+=list.map(r=>{const sel=RL.sel===r.id,meta=[r.net?NET[r.net][0]:'',r.len?fKm(r.len)+' km':r.km?'ca. '+fM(r.km)+' km':'',r.from&&r.to?esc(r.from)+' naar '+esc(r.to):''].filter(Boolean).join(' · ');
       let x='';if(sel)x=RL.loading===r.id?'<div class="rload"><i></i><span>Route laden</span></div>':r.err?'<div class="rtx"><span class="note" style="margin:0">'+esc(r.err)+'</span><button class="btn small" data-retry="1">Opnieuw</button></div>'
-        :'<div class="rtx"><button class="btn primary small" data-use="1">Gebruik deze route</button>'+(RL.mode==='tap'?'<button class="btn small" data-fit="1">Toon hele route</button>':'')+(r.web?'<a class="link" href="'+esc(r.web)+'" target="_blank" rel="noopener">Website</a>':'')+(r.wiki?'<a class="link" href="'+esc(r.wiki)+'" target="_blank" rel="noopener">Wikipedia</a>':'')+'<a class="link" href="https://hiking.waymarkedtrails.org/#route?id='+r.id+'&type=relation" target="_blank" rel="noopener">Meer info</a>'+(r.gaps?'<span class="pill warn">'+r.gaps+(r.gaps===1?' onderbreking':' onderbrekingen')+'</span>':'')+'</div>'+(r.desc||r.op||r.sym?'<p class="rinfo">'+[r.desc?esc(r.desc):'',r.sym?'Markering: '+esc(r.sym):'',r.op?'Beheer: '+esc(r.op):''].filter(Boolean).join('<br>')+'</p>':'');
+        :'<div class="rtx"><button class="btn primary small" data-use="1">Gebruik deze route</button>'+(TR&&!inTrip(r)?'<button class="btn small" data-add="1" title="Voeg deze route toe aan '+esc(trip.name)+'">Toevoegen aan tocht</button>':'')+(RL.mode==='tap'?'<button class="btn small" data-fit="1">Toon hele route</button>':'')+(r.web?'<a class="link" href="'+esc(r.web)+'" target="_blank" rel="noopener">Website</a>':'')+(r.wiki?'<a class="link" href="'+esc(r.wiki)+'" target="_blank" rel="noopener">Wikipedia</a>':'')+'<a class="link" href="https://hiking.waymarkedtrails.org/#route?id='+r.id+'&type=relation" target="_blank" rel="noopener">Meer info</a>'+(r.gaps?'<span class="pill warn">'+r.gaps+(r.gaps===1?' onderbreking':' onderbrekingen')+'</span>':'')+'</div>'+(r.desc||r.op||r.sym?'<p class="rinfo">'+[r.desc?esc(r.desc):'',r.sym?'Markering: '+esc(r.sym):'',r.op?'Beheer: '+esc(r.op):''].filter(Boolean).join('<br>')+'</p>':'');
       return'<div class="rt'+(sel?' sel':'')+'" data-id="'+r.id+'" role="button" tabindex="0"><b>'+(r.ref?'<span class="ref">'+esc(r.ref)+'</span>':'')+esc(r.name)+'</b>'+(meta?'<small>'+meta+'</small>':'')+x+'</div>'}).join('')+(RL.items.length&&!list.length?'<p class="note">Geen routes in deze groep.</p>':'')}
   h+='<p class="note" style="margin-top:14px">Routes komen uit OpenStreetMap. Beoordelingen van andere wandelaars zitten er niet in.</p>';
   el.innerHTML=h;
@@ -1892,18 +1893,27 @@ function renderRoutes(){const el=$('#rBody');let h='';
     const l=LANDS.find(x=>x[0]===c);if(store.countries.includes(c)){RL.skipMove=true;map.setView([l[2],l[3]],l[4])}renderRoutes()});
   el.querySelectorAll('[data-pop]').forEach(b=>b.onclick=()=>routesByName(POP[+b.dataset.pop][1]));
   el.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{RL.filter=b.dataset.f;renderRoutes()});
-  el.querySelectorAll('.rt').forEach(d=>{const r=RL.items.find(x=>x.id===+d.dataset.id),go=e=>{if(e.target.closest('a'))return;if(e.target.closest('[data-use]')){useRoute(r);return}if(e.target.closest('[data-fit]')){getGeom(r).then(g=>{RL.skipMove=true;map.fitBounds(L.latLngBounds(g.coords),{paddingTopLeft:[30,80],paddingBottomRight:[70,sheetH()+20]})});return}if(e.target.closest('[data-retry]')){r.err=null;GEO.delete(r.id);previewRoute(r);return}if(RL.sel!==r.id||r.err)previewRoute(r)};
+  el.querySelectorAll('.rt').forEach(d=>{const r=RL.items.find(x=>x.id===+d.dataset.id),go=e=>{if(e.target.closest('a'))return;if(e.target.closest('[data-use]')){useRoute(r);return}if(e.target.closest('[data-add]')){addRoute(r);return}if(e.target.closest('[data-fit]')){getGeom(r).then(g=>{RL.skipMove=true;map.fitBounds(L.latLngBounds(g.coords),{paddingTopLeft:[30,80],paddingBottomRight:[70,sheetH()+20]})});return}if(e.target.closest('[data-retry]')){r.err=null;GEO.delete(r.id);previewRoute(r);return}if(RL.sel!==r.id||r.err)previewRoute(r)};
     d.onclick=go;d.onkeydown=e=>{if(e.key==='Enter')go(e)}})}
+const segLen=s=>{let d=0;for(let i=1;i<s.length;i++)d+=hav(s[i-1],s[i]);return d};
+// Een los stukje dat korter is dan de sprong ernaartoe (bijv. 20 m pad op 6 km afstand) is een foutje in de kaartgegevens: overslaan.
+const stray=(len,jump)=>jump>300&&len<Math.min(1000,jump/2);
 function stitch(segs){segs=segs.filter(s=>s.length>1);if(!segs.length)return{coords:[],gaps:0};
   const used=new Array(segs.length).fill(false);let chain=segs[0].slice(),left=segs.length-1,gaps=0;used[0]=true;
   while(left){const head=chain[0],tail=chain[chain.length-1];let bi=-1,bd=Infinity,mode=0;
     for(let i=0;i<segs.length;i++){if(used[i])continue;const s=segs[i],a=s[0],b=s[s.length-1],d=[hav(tail,a),hav(tail,b),hav(head,b),hav(head,a)];
       for(let m=0;m<4;m++)if(d[m]<bd){bd=d[m];bi=i;mode=m}
       if(bd<1&&mode<2)break}
-    const s=segs[bi],j=bd<1;used[bi]=true;left--;if(bd>25000)continue;if(bd>120)gaps++;
+    const s=segs[bi],j=bd<1;used[bi]=true;left--;if(bd>25000||stray(segLen(s),bd))continue;if(bd>120)gaps++;
     if(mode===0)chain=chain.concat(j?s.slice(1):s);else if(mode===1)chain=chain.concat((j?s.slice(0,-1):s.slice()).reverse());
     else if(mode===2)chain=(j?s.slice(0,-1):s).concat(chain);else chain=(j?s.slice(1):s.slice()).reverse().concat(chain)}
   return{coords:chain,gaps}}
+// Tochten die met de oude koppelcode zijn bewaard: losse snippertjes die met lange rechte lijnen vastzaten eruit halen.
+store.trips.forEach(t=>{const m=t.meta;if(!m||!m.osm||m.fix>=2||t.legs.length!==1||!t.legs[0].locked)return;m.fix=2;
+  const c=t.legs[0].coords,P=[[c[0]]],J=[];for(let i=1;i<c.length;i++){const d=hav(c[i-1],c[i]);if(d>300){P.push([c[i]]);J.push(d)}else P[P.length-1].push(c[i])}
+  if(P.length<2)return;const keep=P.map((p,k)=>!stray(segLen(p),Math.min(k?J[k-1]:Infinity,k<J.length?J[k]:Infinity)));if(keep.every(Boolean)||!keep.some(Boolean))return;
+  const out=[].concat(...P.filter((p,k)=>keep[k]));if(out.length<2)return;t.legs[0].coords=out;t.wps=[{lat:out[0][0],lng:out[0][1]},{lat:out[out.length-1][0],lng:out[out.length-1][1]}];
+  m.gaps=Math.max(0,(m.gaps||0)-keep.filter(k=>!k).length);t.pois=null;t.poiTried=0;save()});
 function getGeom(r){if(GEO.has(r.id))return GEO.get(r.id);const pr=loadGeom(r).catch(e=>{GEO.delete(r.id);throw e});GEO.set(r.id,pr);return pr}
 function geomFrom(segs,t){const st=stitch(segs);if(st.coords.length<2)throw new Error('leeg');
   const coords=thin(st.coords,6000);let d=0;for(let i=1;i<coords.length;i++)d+=hav(coords[i-1],coords[i]);t=t||{};const wk=String(t.wikipedia||'').match(/^([a-z\-]{2,12}):(.+)$/);
@@ -1926,8 +1936,8 @@ async function geomWmt(id){const r=await fetchT(WMT+'details/relation/'+id,25000
   const g=geomFrom([all],Object.assign({},j.tags||{},{name:(j.tags&&j.tags.name)||j.name||''}));g.gaps=gaps;
   const t=j.tags||{},km=parseFloat(String(t.distance||'').replace(',','.'));
   g.info={desc:(t.description||t['description:en']||t.note||'').slice(0,220),op:(t.operator||'').slice(0,60),sym:(t.symbol||'').slice(0,80),from:t.from||'',to:t.to||'',km:isFinite(km)&&km>0&&km<20000?km:null};return g}
-async function loadGeom(r){const old=await TDB.get(r.id,'g');if(old&&old.coords&&Date.now()-old.at<30*864e5)return old;
-  const g=await geomWmt(r.id).catch(()=>geomOverpass(r.id));g.at=Date.now();TDB.put(r.id,g,'g');return g}
+async function loadGeom(r){const old=await TDB.get(r.id,'g');if(old&&old.coords&&old.v===2&&Date.now()-old.at<30*864e5)return old;
+  const g=await geomWmt(r.id).catch(()=>geomOverpass(r.id));g.at=Date.now();g.v=2;TDB.put(r.id,g,'g');return g}
 async function moreInfo(r){if(!r.thin)return;r.thin=false;
   try{const it=parseRoutes(await overpassFast('[out:json][timeout:15];rel('+r.id+');out tags bb;',18000))[0];if(it){['desc','op','sym','web','wiki','from','to','km'].forEach(k=>{if(it[k]&&!r[k])r[k]=it[k]});if(!r.net)r.net=it.net;if(routesOpen&&RL.sel===r.id&&RL.loading!==r.id){renderRoutes();scrollSel()}}}catch(e){r.thin=true}}
 function showPrev(lines,fitIt){gPrev.clearLayers();L.polyline(lines,{color:'#fff',weight:9,opacity:.9,interactive:false}).addTo(gPrev);L.polyline(lines,{color:'#1b6fd6',weight:5,interactive:false}).addTo(gPrev);
@@ -1941,6 +1951,69 @@ async function previewRoute(r){if(!r)return;RL.sel=r.id;r.err=null;
   if(RL.loading===r.id)RL.loading=null;if(routesOpen){renderRoutes();scrollSel()}}
 function scrollSel(){const e=$('#rBody .rt.sel');if(e&&e.scrollIntoView)e.scrollIntoView({block:'nearest'})}
 async function useRoute(r){let g;setBusy('Route ophalen');$('#busy').style.display='flex';try{g=await getGeom(r)}catch(e){toast('De volledige route kon niet worden geladen. Probeer het zo opnieuw.');return}finally{if(!pending&&!eleBusy)$('#busy').style.display='none'}closeRoutes();adoptTrack(g.coords.map(c=>c.slice()),r.name.slice(0,60),null,{osm:r.id,web:r.web,wiki:r.wiki,gaps:g.gaps}).then(()=>toast('Route overgenomen. Verdeel hem onder Etappes over dagen.',4500))}
+/* ---------- tocht uitbreiden met een andere bekende route ---------- */
+function segNear(T){const C=0.004,g=new Map();   // raster met de stukjes van de tocht, voor snel 'hoe ver van de tocht ligt dit punt'
+  for(let i=0;i<T.length-1;i++){const a=T[i],b=T[i+1];for(let x=Math.floor(Math.min(a[0],b[0])/C);x<=Math.floor(Math.max(a[0],b[0])/C);x++)for(let y=Math.floor(Math.min(a[1],b[1])/C);y<=Math.floor(Math.max(a[1],b[1])/C);y++){const k=x+','+y;if(!g.has(k))g.set(k,[]);g.get(k).push(i)}}
+  return q=>{const cx=Math.floor(q[0]/C),cy=Math.floor(q[1]/C),kx=Math.cos(q[0]*Math.PI/180)*111320,seen=new Set();let best={d:Infinity,i:-1,f:0};
+    for(let x=-1;x<=1;x++)for(let y=-1;y<=1;y++){const l=g.get((cx+x)+','+(cy+y));if(l)for(const i of l){if(seen.has(i))continue;seen.add(i);const a=T[i],b=T[i+1];
+      const ax=(a[1]-q[1])*kx,ay=(a[0]-q[0])*110540,dx=(b[1]-a[1])*kx,dy=(b[0]-a[0])*110540,L2=dx*dx+dy*dy,f=L2?Math.max(0,Math.min(1,-(ax*dx+ay*dy)/L2)):0,d=Math.hypot(ax+f*dx,ay+f*dy);
+      if(d<best.d)best={d,i,f}}}
+    return best}}
+function joinName(a,b){const A=a.split(' '),B=b.split(' ');let k=0;while(k<A.length-1&&k<B.length-1&&A[k]===B[k])k++;return(a+' + '+B.slice(k).join(' ')).slice(0,90)}
+// Bepaalt hoe route X in tocht T past. Geeft de nieuwe lijn terug, en per punt uit welk punt van T het komt (-1 = nieuw).
+async function planAdd(T,D,X,xName){const ON=40,near=segNear(T),total=D[D.length-1],closedT=hav(T[0],T[T.length-1])<200;
+  let hit=X.map(near);
+  if(hav(X[0],X[X.length-1])<60){const k=hit.findIndex(h=>h.d<ON);if(k>0){X=X.slice(k).concat(X.slice(1,k+1));hit=hit.slice(k).concat(hit.slice(1,k+1))}}   // rondje: laat het beginnen op de tocht
+  const n=X.length,xLen=(a,b)=>{let d=0;for(let i=a;i<b;i++)d+=hav(X[i],X[i+1]);return d},pos=h=>D[h.i]+h.f*(D[h.i+1]-D[h.i]),km=m=>fKm(m)+' km';
+  const out=[],src=[],push=(c,s)=>{if(out.length&&hav(out[out.length-1],c)<1)return;out.push(c.slice());src.push(s)};
+  const tp=(a,b)=>{if(a<=b)for(let i=a;i<=b;i++)push(T[i],i);else for(let i=a;i>=b;i--)push(T[i],i)},xp=a=>a.forEach(c=>push(c,-1));
+  const runs=[];for(let i=0;i<n;){if(hit[i].d<ON){i++;continue}let j=i;while(j+1<n&&hit[j+1].d>=ON)j++;const s=Math.max(0,i-1),e=Math.min(n-1,j+1);runs.push({s,e,inn:i>0,out:j<n-1,m:xLen(s,e)});i=j+1}
+  const big=runs.filter(r=>r.m>150).sort((a,b)=>b.m-a.m);
+  if(!big.length)return{err:xName+' loopt helemaal over je tocht heen. Er valt niets toe te voegen.'};
+  const R=big[0],rest=big.slice(1).reduce((a,r)=>a+r.m,0),tail=rest>300?' Een los stuk van '+xName+' ('+km(rest)+') zit er niet in.':'';
+  if(R.inn&&R.out){   // de route verlaat de tocht en komt er verderop weer op uit
+    let P=hit[R.s],Q=hit[R.e],O=X.slice(R.s,R.e+1);if(pos(P)>pos(Q)){[P,Q]=[Q,P];O=O.slice().reverse()}
+    const a=pos(P),b=pos(Q);let inner=0,outer=0;hit.forEach((h,k)=>{if(h.d>=ON||(k>=R.s&&k<=R.e))return;const p=pos(h);if(p>a+50&&p<b-50)inner++;else if(p<a-50||p>b+50)outer++});
+    const wrap=closedT&&(outer>inner||(outer===inner&&b-a>total/2));
+    if(!wrap){tp(0,P.i);xp(O);tp(Q.i+1,T.length-1);
+      return{out,src,note:'Toegevoegd: bij km '+fKm(a)+' ga je over op '+xName+' ('+km(xLen(R.s,R.e))+') en kom je weer op je route uit.'+(inner?' Zo wordt het één grote ronde; het stuk dat beide routes delen ('+km(b-a)+') sla je over.':' Het stuk van je route daartussen ('+km(b-a)+') sla je dan over.')+tail}}
+    tp(P.i+1,Q.i);xp(O.slice().reverse());   // gedeelde stuk ligt over het begin van de rondtocht heen: begin de nieuwe ronde bij de oude start
+    let k0=0,bd=Infinity;out.forEach((c,k)=>{const d=hav(c,T[0]);if(d<bd){bd=d;k0=k}});
+    const o2=out.slice(k0).concat(out.slice(1,k0+1)),s2=src.slice(k0).concat(src.slice(1,k0+1));
+    return{out:o2,src:s2,note:'Toegevoegd: '+xName+' ('+km(xLen(R.s,R.e))+') loopt nu mee in je rondtocht. Zo wordt het één grote ronde; het stuk dat beide routes delen ('+km(total-(b-a))+') sla je over.'+(bd>300?' Je start ligt daardoor nu op het punt waar de routes samenkomen.':'')+tail}}
+  if(R.inn||R.out){   // de route begint op de tocht en loopt er vandaan
+    const J=R.inn?hit[R.s]:hit[R.e],O=R.inn?X.slice(R.s):X.slice(0,R.e+1).reverse(),p=pos(J),m=xLen(R.s,R.e);
+    if(!closedT&&p>total-300){tp(0,J.i);xp(O);return{out,src,note:xName+' ('+km(m)+') is achter je tocht geplakt.'+tail}}
+    if(!closedT&&p<300){xp(O.slice().reverse());tp(J.i+1,T.length-1);return{out,src,note:xName+' ('+km(m)+') is vóór je tocht geplakt. Je start nu aan het andere eind van '+xName+'.'+tail}}
+    tp(0,J.i);xp(O);xp(O.slice().reverse());tp(J.i+1,T.length-1);return{out,src,note:'Toegevoegd: bij km '+fKm(p)+' loop je '+xName+' heen en terug (2 × '+km(m)+').'+tail}}
+  // de route raakt de tocht nergens: verbinden met een gerouteerd stuk
+  const st=Math.max(1,Math.floor(X.length/600));let bi=0,bj=0,bd=Infinity;for(let j=0;j<X.length;j+=st)for(let i=0;i<T.length;i++){const d=hav(T[i],X[j]);if(d<bd){bd=d;bi=i;bj=j}}
+  if(bd>5000)return{err:xName+' ligt '+km(bd)+' van je tocht. Dat is te ver om automatisch te verbinden. Teken de verbinding zelf of gebruik de route als losse tocht.'};
+  const ll=c=>({lat:c[0],lng:c[1]});
+  if(hav(X[0],X[X.length-1])<60){const Xr=X.slice(bj).concat(X.slice(1,bj+1)),c=(await routeLeg(ll(T[bi]),ll(X[bj]))).coords;
+    tp(0,bi);xp(c);xp(Xr);xp(c.slice().reverse());tp(bi,T.length-1);
+    return{out,src,note:'Toegevoegd: vanaf km '+fKm(D[bi])+' loop je '+km(segLen(c))+' naar '+xName+', de hele ronde ('+km(segLen(Xr))+') en weer terug.'}}
+  const e0=Math.min(hav(T[T.length-1],X[0]),hav(T[T.length-1],X[X.length-1])),s0=Math.min(hav(T[0],X[0]),hav(T[0],X[X.length-1]));
+  if(closedT||e0<=s0){const O=hav(T[T.length-1],X[0])<=hav(T[T.length-1],X[X.length-1])?X:X.slice().reverse(),c=(await routeLeg(ll(T[T.length-1]),ll(O[0]))).coords;
+    tp(0,T.length-1);xp(c);xp(O);return{out,src,note:xName+' is achter je tocht geplakt, met een verbinding van '+km(segLen(c))+'.'}}
+  const O=hav(T[0],X[X.length-1])<=hav(T[0],X[0])?X:X.slice().reverse(),c=(await routeLeg(ll(O[O.length-1]),ll(T[0]))).coords;
+  xp(O);xp(c);tp(0,T.length-1);return{out,src,note:xName+' is vóór je tocht geplakt, met een verbinding van '+km(segLen(c))+'.'}}
+async function addRoute(r){if(!TR||!trip.legs.length){toast('Open eerst de tocht die je wilt uitbreiden.');return}
+  const t=trip,nm=r.name||'de route';let plan;setBusy('Route ophalen');$('#busy').style.display='flex';
+  try{const g=await getGeom(r),X=g.coords.map(c=>c.slice());
+    if(TR.hasEle&&!X.some(c=>c[2]!=null)){setBusy('Hoogtes ophalen');await eleWmt(r.id,X).catch(()=>fillEle(X))}
+    setBusy('Routes samenvoegen');plan=await planAdd(TR.P,TR.D,X,nm)}
+  catch(e){console.error(e);toast(navigator.onLine===false?'Je bent offline. Routes toevoegen kan alleen met verbinding.':'De route kon niet worden geladen. Probeer het zo opnieuw.');return}
+  finally{if(!pending&&!eleBusy)$('#busy').style.display='none'}
+  if(trip!==t)return;if(plan.err){toast(plan.err,7000);return}
+  const before=JSON.stringify({name:t.name,wps:t.wps,legs:t.legs,breaks:t.breaks,meta:t.meta,pois:t.pois,poiSig:t.poiSig,poiTried:t.poiTried,poiV:t.poiV});
+  const C=plan.out,ND=[0],at=new Map();for(let i=1;i<C.length;i++)ND.push(ND[i-1]+hav(C[i-1],C[i]));plan.src.forEach((s,k)=>{if(s>=0&&!at.has(s))at.set(s,k)});
+  const nb=[];t.breaks.forEach(b=>{const k=at.get(idxAt(b));if(k!=null)nb.push(Math.round(ND[k]))});   // overnachtingen schuiven mee
+  t.legs=[{coords:C,locked:true}];t.wps=[{lat:C[0][0],lng:C[0][1]},{lat:C[C.length-1][0],lng:C[C.length-1][1]}];t.breaks=nb;
+  t.meta=Object.assign({},t.meta||{},{fix:2,parts:((t.meta&&t.meta.parts)||[]).concat({osm:r.id,name:nm.slice(0,80)})});t.name=joinName(t.name,nm);
+  t.pois=null;t.poiTried=0;WX={};wantDays=0;closeRoutes();
+  run(async()=>buildTrack()).then(()=>{save();fit();toast(plan.note+' Totaal nu '+fKm(TR.total)+' km.',10000,{label:'Ongedaan maken',fn:()=>{Object.assign(t,JSON.parse(before));WX={};save();if(trip===t)run(async()=>buildTrack()).then(fit);toast('De tocht is terug zoals hij was.')}})})}
+const inTrip=r=>!!(TR&&trip.meta&&(trip.meta.osm===r.id||(trip.meta.parts||[]).some(p=>p.osm===r.id)));
 function openRoutes(q,noAuto){if(curTab!=='Kaart')showTab('Kaart');closePops();if(!noAuto&&RL.mode==='tap'){RL.items=null;RL.msg='';$('#pRoutes').classList.remove('small')}routesOpen=true;$('#pRoutes').style.display='flex';$('#sheet').style.display='none';setDrawing(drawing);renderRoutes();setSheetH();
   if(q)routesByName(q);else if(!noAuto&&!RL.items&&!RL.busy&&map.getZoom()>=9)routesHere()}
 function closeRoutes(){routesOpen=false;$('#pRoutes').style.display='none';$('#sheet').style.display='';$('#reSearch').style.display='none';gPrev.clearLayers();RL.sel=null;setDrawing(drawing);renderSheet()}
